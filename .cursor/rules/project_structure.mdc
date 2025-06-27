@@ -1,0 +1,22 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# Project Directory Structure
+
+This project follows a standard Go project layout.
+
+- `cmd/`: Contains the main application entry points. Specifically, `cmd/terraform-ops/main.go` is the main CLI application.
+- `internal/`: Houses private application and library code. This includes:
+    - `internal/app/`: Core application logic and CLI command definitions.
+    - `internal/pkg/`: Internal packages, such as `config.go` for application configuration.
+- `pkg/`: Contains public library code that can be used by other applications. For example, `pkg/terraform/client.go` handles interactions with Terraform.
+- `configs/`: Stores application configuration files, such as `config.yaml`.
+- `deployments/`: Likely contains deployment-related files.
+- `docs/`: Documentation files, like `list_providers.md`.
+- `examples/`: Example usage of the project's functionalities.
+- `scripts/`: Utility scripts for building, installing, and other operations.
+- `test/`: Integration and unit tests.
+- `assets/`: Static assets or resources.
+- `tools/`: Development tools or utilities.

@@ -1,4 +1,4 @@
-# Copyright 2023 Ubie, inc.
+# Copyright 2025 yu-iskw
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,10 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# Terraform Provider testing workflow.
-name: Tests
-# This GitHub action runs your tests for each pull request and push.
-# Optionally, you can turn it on using a schedule for regular testing.
+name: Integration Tests
 on:
   pull_request:
     paths-ignore:
@@ -24,20 +21,15 @@ on:
       - main
     paths-ignore:
       - README.md
-# Testing only needs permissions to read the repository contents.
 permissions: read-all
 jobs:
-  # Ensure project builds before running testing matrix
-  build:
-    name: Build
+  integration-test:
+    name: Run Integration Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     permissions:
-      # Required: allow read access to the content for analysis.
       contents: read
-      # Optional: allow read access to pull request. Use with `only-new-issues` option.
       pull-requests: read
-      # Optional: Allow write access to checks to allow the action to annotate code in the PR.
       checks: write
     steps:
       - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -48,8 +40,11 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
-      - run: |
+      - name: Download Go modules and build project
+        run: |
           go mod download
           go mod vendor
-      - run: |
-          go build -v ./...
+          make build
+      - name: Run Integration Tests
+        run: |
+          make test-integration
