@@ -153,7 +153,7 @@ make test-integration
 
 ### Project Structure
 
-```
+```shell
 terraform-ops/
 ├── cmd/terraform-ops/     # Main application entry point
 ├── internal/              # Private application code
