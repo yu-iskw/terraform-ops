@@ -68,3 +68,6 @@ config.local.yaml
 
 # Cache directories
 .cache/
+
+# binary
+terraform-ops

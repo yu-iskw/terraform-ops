@@ -1,4 +1,4 @@
-# Copyright 2023 Ubie, inc.
+# Copyright 2025 yu-iskw
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# Terraform Provider testing workflow.
 name: Tests
 # This GitHub action runs your tests for each pull request and push.
 # Optionally, you can turn it on using a schedule for regular testing.
@@ -53,3 +52,4 @@ jobs:
           go mod vendor
       - run: |
           go build -v ./...
+          go test -v ./...

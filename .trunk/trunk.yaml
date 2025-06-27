@@ -18,6 +18,7 @@ runtimes:
 # This is the section where you manage your linters. (https://docs.trunk.io/check/configuration)
 lint:
   enabled:
+    - actionlint@1.7.7
     - checkov@3.2.447
     - yamllint@1.37.1
     - codespell@2.4.1
@@ -35,9 +36,8 @@ lint:
     - prettier@3.6.1
     - trufflehog@3.89.2
 actions:
-  disabled:
+  enabled:
+    - trunk-upgrade-available
     - trunk-announce
     - trunk-check-pre-push
     - trunk-fmt-pre-commit
-  enabled:
-    - trunk-upgrade-available
