@@ -15,20 +15,26 @@
 package test
 
 import (
+	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 
 	"bytes"
 	"encoding/json"
-	"path/filepath"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestCLIVersion(t *testing.T) {
-	// Build the CLI first
-	buildCmd := exec.Command("make", "build")
-	buildCmd.Dir = "/Users/yu/local/src/github/terraform-ops" // Explicitly set working directory
+	// Ensure build directory exists
+	buildDir := "../build"
+	if err := os.MkdirAll(buildDir, 0755); err != nil {
+		t.Fatalf("Failed to create build directory: %v", err)
+	}
+
+	// Build the CLI first - use go build directly instead of make
+	buildCmd := exec.Command("go", "build", "-o", "../build/terraform-ops", "../cmd/terraform-ops")
 	buildOutput, buildErr := buildCmd.CombinedOutput()
 	if buildErr != nil {
 		t.Fatalf("Failed to build CLI: %v\nOutput: %s", buildErr, string(buildOutput))
