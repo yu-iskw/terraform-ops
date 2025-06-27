@@ -1,0 +1,22 @@
+# Terraform Ops Configuration
+verbose: false
+log_level: info
+terraform_bin: terraform
+# Default directories
+config_dir: ~/.terraform-ops
+cache_dir: ~/.terraform-ops/cache
+# Terraform settings
+terraform:
+  auto_approve: false
+  parallelism: 10
+  refresh: true
+# Cloud provider settings (examples)
+aws:
+  region: us-west-2
+  profile: default
+azure:
+  subscription_id: ""
+  tenant_id: ""
+gcp:
+  project_id: ""
+  region: us-central1
