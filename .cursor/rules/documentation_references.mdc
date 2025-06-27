@@ -1,0 +1,31 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Documentation References
+
+## Project Documentation
+- [Project Structure](mdc:docs/project_structure.md): Overview of the codebase organization
+- [Plan Graph Documentation](mdc:docs/plan_graph.md): Detailed guide for the plan-graph command
+- [Show Terraform Documentation](mdc:docs/show_terraform.md): Guide for the show-terraform command
+
+## External References
+
+### Terraform
+- [Terraform JSON Output Format](https://developer.hashicorp.com/terraform/internals/json-format): Official documentation for Terraform's JSON plan and state format
+- [HCL Configuration Language](https://developer.hashicorp.com/terraform/language): Terraform's configuration language syntax
+
+### Go Libraries Used
+- [Cobra CLI Framework](https://github.com/spf13/cobra): For building CLI applications
+- [HCL Parser](https://github.com/hashicorp/hcl/v2): For parsing Terraform configuration files
+
+## Integration Testing
+Integration tests are located in [integration_tests/](mdc:integration_tests/) and include:
+- Real Terraform configuration examples
+- Test workspaces for different scenarios
+- Command-specific test suites
+
+## Build and Development
+- [Makefile](mdc:Makefile): Contains all build, test, and development commands
+- See [development workflow](mdc:.cursor/rules/development-workflow.mdc) for detailed usage

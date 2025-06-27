@@ -15,7 +15,6 @@
 package test
 
 import (
-	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
@@ -27,20 +26,6 @@ import (
 )
 
 func TestCLIVersion(t *testing.T) {
-	// Ensure build directory exists
-	buildDir := "../build"
-	if err := os.MkdirAll(buildDir, 0755); err != nil {
-		t.Fatalf("Failed to create build directory: %v", err)
-	}
-
-	// Build the CLI first - use go build directly instead of make
-	buildCmd := exec.Command("go", "build", "-o", "../build/terraform-ops", "../cmd/terraform-ops")
-	buildOutput, buildErr := buildCmd.CombinedOutput()
-	if buildErr != nil {
-		t.Fatalf("Failed to build CLI: %v\nOutput: %s", buildErr, string(buildOutput))
-	}
-	t.Logf("Build output: %s", string(buildOutput))
-
 	// Test running the CLI
 	cmd := exec.Command("../build/terraform-ops")
 	output, err := cmd.CombinedOutput()

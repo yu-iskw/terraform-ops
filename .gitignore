@@ -71,3 +71,10 @@ config.local.yaml
 
 # binary
 terraform-ops
+
+# Ignore dynamically generated plan and JSON files in plan_graph integration tests
+integration_tests/plan_graph/plan.tfplan
+integration_tests/plan_graph/web-app-plan.json
+integration_tests/plan_graph/workspaces/web-app/.terraform/
+integration_tests/plan_graph/workspaces/web-app/.terraform.lock.hcl
+integration_tests/plan_graph/workspaces/web-app/terraform.tfstate*

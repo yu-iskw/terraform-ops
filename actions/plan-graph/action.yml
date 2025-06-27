@@ -1,0 +1,62 @@
+name: Terraform Plan Graph
+description: Generate a visual graph representation of Terraform plan changes
+author: yu-iskw
+branding:
+  icon: activity
+  color: blue
+inputs:
+  plan-file:
+    description: Path to the Terraform plan JSON file
+    required: true
+  format:
+    description: Output format (graphviz, mermaid, plantuml)
+    required: false
+    default: mermaid
+  output-file:
+    description: Output file path (default - stdout)
+    required: false
+    default: ""
+  group-by:
+    description: Grouping strategy (module, action, resource_type)
+    required: false
+    default: module
+  show-dependencies:
+    description: Include dependency relationships between resources
+    required: false
+    default: "true"
+  show-sensitivity:
+    description: Include sensitivity indicators for sensitive values
+    required: false
+    default: "false"
+  show-outputs:
+    description: Include output values in the graph
+    required: false
+    default: "false"
+  show-variables:
+    description: Include variable values in the graph
+    required: false
+    default: "false"
+  show-locals:
+    description: Include local values in the graph
+    required: false
+    default: "false"
+  show-data-sources:
+    description: Include data source resources in the graph
+    required: false
+    default: "false"
+  compact:
+    description: Generate a more compact graph layout
+    required: false
+    default: "false"
+  verbose:
+    description: Enable verbose output for debugging
+    required: false
+    default: "false"
+outputs:
+  graph-content:
+    description: The generated graph content (when output-file is not specified)
+  output-file-path:
+    description: Path to the generated output file (when output-file is specified)
+runs:
+  using: docker
+  image: Dockerfile

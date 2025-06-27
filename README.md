@@ -12,6 +12,18 @@ A command-line interface tool for managing Terraform operations and workflows. T
 
 ## Installation
 
+### Using Homebrew (Recommended)
+
+```shell
+# Add the custom tap
+brew tap yu/terraform-ops
+
+# Install terraform-ops
+brew install terraform-ops
+```
+
+**Note**: You'll need to create a `homebrew-terraform-ops` repository first. See [Homebrew Installation Guide](docs/homebrew.md) for detailed setup instructions.
+
 ### From Source
 
 ```shell
@@ -157,6 +169,9 @@ make test-integration
 - `install` - Install binary to $GOPATH/bin
 - `clean` - Clean build artifacts
 - `dev` - Development with live reload (requires air)
+- `homebrew-test` - Test Homebrew formula installation
+- `homebrew-install` - Install via Homebrew formula
+- `homebrew-uninstall` - Uninstall via Homebrew
 
 ### Project Structure
 
@@ -166,13 +181,16 @@ terraform-ops/
 ├── internal/              # Private application code
 │   ├── app/              # CLI command definitions
 │   ├── pkg/              # Internal packages
-│   └── show_terraform/   # Terraform block parsing logic
+│   ├── show_terraform/   # Terraform block parsing logic
+│   └── plan_graph/       # Plan graph generation logic
 ├── pkg/                  # Public library code
 │   └── terraform/        # Terraform client utilities
-├── test/                 # Integration tests
-│   └── workspaces/       # Test Terraform configurations
+├── integration_tests/    # Integration tests
+│   ├── show_terraform/   # Show terraform command tests
+│   └── plan_graph/       # Plan graph command tests
 ├── docs/                 # Documentation
 ├── scripts/              # Build and utility scripts
+├── Formula/              # Homebrew formula
 └── examples/             # Usage examples
 ```
 
@@ -191,13 +209,14 @@ make test-integration
 make coverage
 ```
 
-Test workspaces are located in `test/workspaces/` and cover various scenarios:
+Test workspaces are located in `integration_tests/` and cover various scenarios:
 
 - Simple provider configurations
 - Backend configurations (S3, GCS)
 - Invalid Terraform files
 - Empty workspaces
 - Missing provider declarations
+- Plan graph generation scenarios
 
 ## Contributing
 

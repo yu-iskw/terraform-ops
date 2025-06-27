@@ -1,0 +1,72 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# Software Engineering Best Practices
+
+## Overview
+General guidelines for implementing code and CI/CD workflows with focus on testability, readability, and maintainability.
+
+## Code Architecture Principles
+
+### Dependency Injection
+- Use interfaces/abstractions to decouple business logic from external dependencies
+- Implement dependency injection to enable easy unit testing
+- Define interfaces in the same package as the consumer, not the implementer
+- Avoid tight coupling between components
+- Example: See [internal/plan_graph/plan_graph.go](mdc:internal/plan_graph/plan_graph.go) for interface usage
+
+### Single Responsibility Principle
+- Each function/class should have one clear purpose
+- Keep functions small and focused (ideally < 50 lines)
+- Separate concerns: parsing, validation, business logic, and output formatting
+- Avoid functions that do multiple things
+- Example: Command implementation in [internal/plan_graph/command.go](mdc:internal/plan_graph/command.go) separates CLI handling from business logic
+
+### Error Handling
+- Use meaningful error messages with context
+- Return errors rather than throwing exceptions/panicking
+- Implement proper error wrapping and propagation using `fmt.Errorf("context: %w", err)`
+- Use custom error types for different error categories
+- Handle errors at the appropriate level
+
+## Testing Strategy
+
+### Unit Testing
+- Test individual functions and methods in isolation
+- Use table-driven tests for multiple scenarios
+- Mock external dependencies using interfaces/abstractions
+- Aim for >80% code coverage (check with `make coverage`)
+- Test both happy path and edge cases
+- Use descriptive test names that explain the scenario
+- Example: See [internal/plan_graph/plan_graph_test.go](mdc:internal/plan_graph/plan_graph_test.go)
+
+### Integration Testing
+- Test complete workflows and command execution
+- Use real external dependencies when possible
+- Test end-to-end scenarios with actual Terraform configurations
+- Verify component interactions
+- Use test fixtures and setup/teardown properly
+- Location: [integration_tests/](mdc:integration_tests/) directory
+
+### Test Organization
+- Unit tests: alongside source code in same package (`*_test.go` files)
+- Integration tests: separate [integration_tests/](mdc:integration_tests/) directory
+- Test fixtures: dedicated directories for test data (e.g., `workspaces/` in integration tests)
+- Use consistent naming conventions for test files
+- Each command has its own integration test suite
+
+## Code Quality Tools
+- **Formatting**: Use `make format` (trunk fmt) for consistent code formatting
+- **Linting**: Use `make lint` (trunk check) for code quality checks
+- **Vetting**: Use `make vet` for static analysis
+- **Testing**: Use `make test` for unit tests and `make test-integration` for integration tests
+- **Coverage**: Use `make coverage` to generate coverage reports
+
+## Go-Specific Best Practices
+- Follow Go naming conventions (PascalCase for public, camelCase for private)
+- Use Go modules for dependency management ([go.mod](mdc:go.mod))
+- Implement proper package structure with clear separation of concerns
+- Use context.Context for cancellation and timeouts where appropriate
+- Handle JSON marshaling/unmarshaling with proper error checking

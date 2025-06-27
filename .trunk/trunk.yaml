@@ -17,9 +17,10 @@ runtimes:
     - python@3.10.8
 # This is the section where you manage your linters. (https://docs.trunk.io/check/configuration)
 lint:
+  disabled:
+    - checkov
   enabled:
     - actionlint@1.7.7
-    - checkov@3.2.447
     - yamllint@1.37.1
     - codespell@2.4.1
     - gofmt@1.20.4

@@ -22,6 +22,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/yu/terraform-ops/internal/plan_graph"
 	"github.com/yu/terraform-ops/internal/show_terraform"
 )
 
@@ -46,6 +47,7 @@ func init() {
 	// Add global flags here
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "verbose output")
 	rootCmd.AddCommand(showTerraformCmd)
+	rootCmd.AddCommand(plan_graph.NewCommand())
 }
 
 var showTerraformCmd = &cobra.Command{

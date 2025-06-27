@@ -10,7 +10,32 @@ The `terraform-ops` tool is a command-line interface for managing Terraform oper
 ## Main Application Structure
 The core application logic and command definitions are located in [internal/app/app.go](mdc:internal/app/app.go), which uses the `cobra` package to define the CLI commands.
 
-## Packages
+## Available Commands
+
+### show-terraform
+- **Purpose**: Displays information from the terraform block in workspaces
+- **Implementation**: [internal/show_terraform/show_terraform.go](mdc:internal/show_terraform/show_terraform.go)
+- **Documentation**: [docs/show_terraform.md](mdc:docs/show_terraform.md)
+- **Usage**: `terraform-ops show-terraform <path...>`
+- **Output**: JSON format containing required_version, backend, and required_providers information
+
+### plan-graph
+- **Purpose**: Generates dependency graphs from Terraform plan files
+- **Implementation**: [internal/plan_graph/command.go](mdc:internal/plan_graph/command.go)
+- **Documentation**: [docs/plan_graph.md](mdc:docs/plan_graph.md)
+- **Usage**: `terraform-ops plan-graph <plan-file>`
+- **Output**: Various graph formats (DOT, Mermaid, etc.)
+
+## Core Packages
 
 ### HCL Parsing
-The tool utilizes the `hclparse` package from `github.com/hashicorp/hcl/v2/hclparse` for parsing HCL (HashiCorp Configuration Language) files, as mentioned in [docs/list_providers.md](mdc:docs/list_providers.md).
+The tool utilizes the `hclparse` package from `github.com/hashicorp/hcl/v2/hclparse` for parsing HCL (HashiCorp Configuration Language) files.
+
+### Terraform Integration
+- [pkg/terraform/client.go](mdc:pkg/terraform/client.go): Handles interactions with Terraform
+- JSON plan parsing and analysis capabilities
+
+## Testing Structure
+- Unit tests: Located alongside source code in each package
+- Integration tests: Located in [integration_tests/](mdc:integration_tests/) directory
+- Each command has dedicated integration test suites with real Terraform configurations

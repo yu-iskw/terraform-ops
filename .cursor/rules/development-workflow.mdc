@@ -5,22 +5,35 @@ alwaysApply: false
 ---
 # Development Workflow
 
-This project uses a `Makefile` to streamline common development tasks. Below are some useful commands:
+This project uses a [Makefile](mdc:Makefile) to streamline common development tasks. Below are the available commands:
 
-- **Formatting and Linting**
-    - `make format`: Formats code using `trunk fmt`. (Refer to [Makefile](mdc:Makefile))
-    - `make format-all`: Formats all code using `trunk fmt -a`. (Refer to [Makefile](mdc:Makefile))
-    - `make lint`: Lints code using `trunk check`. This also runs `make format` first. (Refer to [Makefile](mdc:Makefile))
-    - `make lint-all`: Lints all code using `trunk check -a`. This also runs `make format-all` first. (Refer to [Makefile](mdc:Makefile))
+## Formatting and Linting
+- `make format`: Formats code using `trunk fmt`
+- `make format-all`: Formats all code using `trunk fmt -a`
+- `make lint`: Lints code using `trunk check`. This also runs `make format` first
+- `make lint-all`: Lints all code using `trunk check -a`. This also runs `make format-all` first
+- `make vet`: Runs `go vet` on the codebase
 
-- **Testing**
-    - `make test`: Runs unit tests. (Refer to [Makefile](mdc:Makefile))
-    - `make coverage`: Runs unit tests and generates a coverage report. (Refer to [Makefile](mdc:Makefile))
+## Testing
+- `make test`: Runs unit tests for internal packages
+- `make coverage`: Runs unit tests and generates a coverage report (coverage.html)
+- `make test-integration`: Runs all integration tests
+- `make test-show-terraform`: Runs integration tests for show-terraform command
+- `make test-integration-plan-graph`: Runs integration tests for plan-graph command
 
-- **Building and Running**
-    - `make build`: Builds the main application binary. (Refer to [Makefile](mdc:Makefile))
-    - `make run`: Builds and runs the application. (Refer to [Makefile](mdc:Makefile))
-    - `make dev`: Runs the application with live reload using `air`. (Refer to [Makefile](mdc:Makefile))
+## Building and Running
+- `make build`: Builds the main application binary to `build/terraform-ops`
+- `make build-all`: Builds binaries for multiple platforms (Linux, macOS, Windows)
+- `make run`: Builds and runs the application
+- `make dev`: Runs the application with live reload using `air`
+- `make install`: Installs the binary to `$GOPATH/bin`
 
-- **Dependencies**
-    - `make deps`: Downloads Go module dependencies and tidies the `go.mod` file. (Refer to [Makefile](mdc:Makefile))
+## Dependencies and Cleanup
+- `make deps`: Downloads Go module dependencies and tidies the `go.mod` file
+- `make clean`: Cleans build artifacts
+
+## Development Best Practices
+- Always run `make lint` before committing code
+- Use `make test` and `make test-integration` to ensure all tests pass
+- Run `make coverage` to check test coverage and aim for >80%
+- Use `make dev` for development with live reload

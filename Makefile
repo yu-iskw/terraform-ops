@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-.PHONY: build clean test coverage fmt vet lint install run help test-integration
+.PHONY: build clean test coverage fmt vet lint install run help test-integration homebrew-test homebrew-install homebrew-uninstall
 
 # Build variables
 BINARY_NAME=terraform-ops
@@ -45,13 +45,19 @@ clean:
 	$(GOCLEAN)
 	rm -rf $(BUILD_DIR)
 
-# Run tests
+# Run unit tests
 test: build
-	$(GOTEST) -v ./...
+	$(GOTEST) -v ./internal/...
 
 # Run integration tests
-test-integration: build
-	$(GOTEST) -v ./test
+test-integration: build test-show-terraform test-integration-plan-graph
+
+test-show-terraform:
+	$(MAKE) -C integration_tests/show_terraform all
+
+test-integration-plan-graph:
+	$(MAKE) -C integration_tests/plan_graph all
+
 
 # Run tests with coverage
 coverage:
@@ -92,3 +98,14 @@ run:
 # Development run with live reload (requires air)
 dev:
 	air
+
+# Homebrew-related targets
+homebrew-test:
+	brew install --formula Formula/terraform-ops.rb
+	brew test terraform-ops
+
+homebrew-install:
+	brew install --formula Formula/terraform-ops.rb
+
+homebrew-uninstall:
+	brew uninstall terraform-ops || true
