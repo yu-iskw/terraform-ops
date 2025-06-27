@@ -11,19 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 name: Trunk Check
-
 on:
   pull_request:
   workflow_dispatch:
-
 concurrency:
   group: ${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
-
 permissions: read-all
-
 jobs:
   trunk_check:
     name: Trunk Check Runner
@@ -31,7 +26,6 @@ jobs:
     permissions:
       checks: write # For trunk to post annotations
       contents: read # For repo checkout
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
