@@ -29,11 +29,11 @@ terraform-ops show-terraform <path1> <path2> ...
     "terraform": {
       "required_version": ">= 1.4.0, < 2.0.0",
       "backend": {
-        "type": "s3",
+        "type": "gcs",
         "config": {
-          "bucket": "my-bucket",
-          "key": "path/to/state.tfstate",
-          "region": "us-east-1"
+          "bucket": "terraform-state-prod",
+          "prefix": "terraform/state",
+          "impersonate_service_account": "test-service-account@terraform-ops-test.iam.gserviceaccount.com"
         }
       },
       "required_providers": {
@@ -48,7 +48,7 @@ terraform-ops show-terraform <path1> <path2> ...
 - `path`: Absolute path that was scanned.
 - `terraform`: Object containing all Terraform configuration details.
   - `required_version`: Empty when not declared.
-  - `backend`: Omitted when no backend block is present.
+  - `backend`: Omitted when no backend block is present. The `config` object contains all primitive attributes found in the backend block, including optional fields like `impersonate_service_account` for GCS backends.
   - `required_providers`: Empty object when no providers are declared.
 
 ## 3. Implementation Highlights

@@ -17,6 +17,8 @@ terraform {
   backend "gcs" {
     bucket  = "terraform-state-prod"
     prefix  = "terraform/state"
+
+    impersonate_service_account = "test-service-account@terraform-ops-test.iam.gserviceaccount.com"
   }
   required_providers {
     google = {

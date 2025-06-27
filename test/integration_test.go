@@ -142,6 +142,7 @@ func TestShowTerraformCommand(t *testing.T) {
 				config := res.Terraform.Backend["config"].(map[string]any)
 				assert.Equal(t, "terraform-state-prod", config["bucket"])
 				assert.Equal(t, "terraform/state", config["prefix"])
+				assert.Equal(t, "test-service-account@terraform-ops-test.iam.gserviceaccount.com", config["impersonate_service_account"])
 			}
 
 		case "workspaces/s3-backend":
