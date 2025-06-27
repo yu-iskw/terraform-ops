@@ -113,6 +113,26 @@ terraform {
 				},
 			},
 		},
+		{
+			name: "GCS Backend with impersonate_service_account",
+			tfContent: `
+terraform {
+  backend "gcs" {
+    bucket  = "terraform-state-prod"
+    prefix  = "terraform/state"
+    impersonate_service_account = "test-service-account@terraform-ops-test.iam.gserviceaccount.com"
+  }
+}
+`,
+			expectedBackend: &Backend{
+				Type: "gcs",
+				Config: map[string]string{
+					"bucket":                      "terraform-state-prod",
+					"prefix":                      "terraform/state",
+					"impersonate_service_account": "test-service-account@terraform-ops-test.iam.gserviceaccount.com",
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {

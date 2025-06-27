@@ -66,6 +66,24 @@ terraform-ops show-terraform ./workspace1 ./workspace2 ./workspace3
     "terraform": {
       "required_version": ">= 1.4.0, < 2.0.0",
       "backend": {
+        "type": "gcs",
+        "config": {
+          "bucket": "terraform-state-prod",
+          "prefix": "terraform/state",
+          "impersonate_service_account": "test-service-account@terraform-ops-test.iam.gserviceaccount.com"
+        }
+      },
+      "required_providers": {
+        "google": "~> 4.0",
+        "random": ""
+      }
+    }
+  },
+  {
+    "path": "/absolute/path/to/workspace2",
+    "terraform": {
+      "required_version": ">= 1.0.0",
+      "backend": {
         "type": "s3",
         "config": {
           "bucket": "my-bucket",
@@ -75,18 +93,7 @@ terraform-ops show-terraform ./workspace1 ./workspace2 ./workspace3
         }
       },
       "required_providers": {
-        "aws": "~> 4.0",
-        "random": ""
-      }
-    }
-  },
-  {
-    "path": "/absolute/path/to/workspace2",
-    "terraform": {
-      "required_version": ">= 1.0.0",
-      "required_providers": {
-        "google": ">=4.83.0,<5.0.0",
-        "aws": "3.0.0"
+        "aws": ">=4.83.0,<5.0.0"
       }
     }
   }
@@ -101,7 +108,7 @@ The `show-terraform` command inspects Terraform configuration files (\*.tf) in t
 - **`terraform.required_version`** – The Terraform CLI version constraint string (empty when not declared)
 - **`terraform.backend`** – Backend type and key-value settings (omitted when no backend block is present)
   - **`type`** – Backend type (e.g., "s3", "gcs", "azurerm")
-  - **`config`** – Key-value configuration settings (only primitive values: string, number, bool)
+  - **`config`** – Key-value configuration settings (only primitive values: string, number, bool). Includes all optional fields like `impersonate_service_account` for GCS backends.
 - **`terraform.required_providers`** – The set of required providers and their declared version constraints (empty object when no providers are declared)
 
 #### Behavior
