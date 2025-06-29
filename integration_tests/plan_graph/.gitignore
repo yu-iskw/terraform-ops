@@ -1,16 +1,7 @@
-# Plan files
-plan.tfplan
-plan.json
-web-app-plan.tfplan
-web-app-plan.json
-simple-random-plan.tfplan
-simple-random-plan.json
-output/
-
-# Generated graph files
-web-app-graph.dot
-web-app-graph.md
-web-app-graph.puml
-simple-random-graph.dot
-simple-random-graph.md
-simple-random-graph.puml
+# Generated files
+*.tfplan
+*.json
+debug.log
+*.dot
+*.puml
+*-graph.md

@@ -12,6 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package test contains integration tests for the plan-graph command.
+//
+// Note: Tests that use the web-app workspace (which includes Google Cloud resources)
+// will be automatically skipped if Google Cloud application default credentials
+// are not available. This allows the tests to run in CI environments where
+// Google Cloud credentials are not configured, such as GitHub Actions.
+// The simple-random workspace tests will always run regardless of credentials.
 package test
 
 import (
@@ -27,19 +34,30 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestMain ensures the plan JSON files are generated before running tests
-func TestMain(m *testing.M) {
-	// Generate the web-app plan JSON if it doesn't exist
-	if _, err := os.Stat("web-app-plan.json"); os.IsNotExist(err) {
-		fmt.Println("Generating web-app plan JSON for tests...")
-		cmd := exec.Command("make", "web-app-plan-json")
-		cmd.Dir = "."
-		if err := cmd.Run(); err != nil {
-			fmt.Printf("Failed to generate web-app plan JSON: %v\n", err)
-			os.Exit(1)
-		}
+// hasGoogleCloudCredentials checks if Google Cloud application default credentials are available
+func hasGoogleCloudCredentials() bool {
+	// Check for GOOGLE_APPLICATION_CREDENTIALS environment variable
+	if os.Getenv("GOOGLE_APPLICATION_CREDENTIALS") != "" {
+		return true
 	}
 
+	// Check if gcloud auth is configured
+	cmd := exec.Command("gcloud", "auth", "list", "--filter=status:ACTIVE", "--format=value(account)")
+	output, err := cmd.Output()
+	if err == nil && len(strings.TrimSpace(string(output))) > 0 {
+		return true
+	}
+
+	// Check for default application credentials file
+	if _, err := os.Stat(os.ExpandEnv("$HOME/.config/gcloud/application_default_credentials.json")); err == nil {
+		return true
+	}
+
+	return false
+}
+
+// TestMain ensures the plan JSON files are generated before running tests
+func TestMain(m *testing.M) {
 	// Generate the simple-random plan JSON if it doesn't exist
 	if _, err := os.Stat("simple-random-plan.json"); os.IsNotExist(err) {
 		fmt.Println("Generating simple-random plan JSON for tests...")
@@ -51,12 +69,32 @@ func TestMain(m *testing.M) {
 		}
 	}
 
+	// Generate the web-app plan JSON only if Google Cloud credentials are available
+	if hasGoogleCloudCredentials() {
+		if _, err := os.Stat("web-app-plan.json"); os.IsNotExist(err) {
+			fmt.Println("Google Cloud credentials found. Generating web-app plan JSON for tests...")
+			cmd := exec.Command("make", "web-app-plan-json")
+			cmd.Dir = "."
+			if err := cmd.Run(); err != nil {
+				fmt.Printf("Failed to generate web-app plan JSON: %v\n", err)
+				os.Exit(1)
+			}
+		}
+	} else {
+		fmt.Println("Google Cloud credentials not found. Skipping web-app plan generation.")
+	}
+
 	// Run the tests
 	os.Exit(m.Run())
 }
 
 // TestPlanGraphCommandWebApp tests the plan-graph command with web-app workspace
 func TestPlanGraphCommandWebApp(t *testing.T) {
+	// Skip if Google Cloud credentials are not available
+	if !hasGoogleCloudCredentials() {
+		t.Skip("Skipping web-app tests: Google Cloud application default credentials not available")
+	}
+
 	// Test with the dynamically generated web-app plan file
 	planFile := "web-app-plan.json"
 
@@ -95,6 +133,11 @@ func TestPlanGraphCommandSimpleRandom(t *testing.T) {
 
 // TestPlanGraphCommandWithOutputFileWebApp tests the plan-graph command with output file for web-app
 func TestPlanGraphCommandWithOutputFileWebApp(t *testing.T) {
+	// Skip if Google Cloud credentials are not available
+	if !hasGoogleCloudCredentials() {
+		t.Skip("Skipping web-app tests: Google Cloud application default credentials not available")
+	}
+
 	planFile := "web-app-plan.json"
 	outputFile := "test_web_app_output.dot"
 
@@ -165,6 +208,11 @@ func TestPlanGraphCommandWithOutputFileSimpleRandom(t *testing.T) {
 
 // TestPlanGraphCommandWithGroupingWebApp tests different grouping strategies for web-app
 func TestPlanGraphCommandWithGroupingWebApp(t *testing.T) {
+	// Skip if Google Cloud credentials are not available
+	if !hasGoogleCloudCredentials() {
+		t.Skip("Skipping web-app tests: Google Cloud application default credentials not available")
+	}
+
 	planFile := "web-app-plan.json"
 	groupingStrategies := []string{"module", "action", "resource_type"}
 
@@ -221,6 +269,11 @@ func TestPlanGraphCommandWithGroupingSimpleRandom(t *testing.T) {
 
 // TestPlanGraphCommandWithOptionsWebApp tests various command line options for web-app
 func TestPlanGraphCommandWithOptionsWebApp(t *testing.T) {
+	// Skip if Google Cloud credentials are not available
+	if !hasGoogleCloudCredentials() {
+		t.Skip("Skipping web-app tests: Google Cloud application default credentials not available")
+	}
+
 	planFile := "web-app-plan.json"
 	testPlanGraphCommandWithOptions(t, planFile, "web-app")
 }
@@ -290,13 +343,13 @@ func TestPlanGraphCommandErrorHandling(t *testing.T) {
 		},
 		{
 			name:        "Invalid_Format",
-			args:        []string{"plan-graph", "--format", "invalid", "web-app-plan.json"},
+			args:        []string{"plan-graph", "--format", "invalid", "simple-random-plan.json"},
 			expectError: true,
 			errorMsg:    "unsupported format",
 		},
 		{
 			name:        "Invalid_Grouping",
-			args:        []string{"plan-graph", "--group-by", "invalid", "web-app-plan.json"},
+			args:        []string{"plan-graph", "--group-by", "invalid", "simple-random-plan.json"},
 			expectError: true,
 			errorMsg:    "unsupported grouping",
 		},
@@ -353,6 +406,11 @@ func TestPlanGraphCommandHelp(t *testing.T) {
 
 // TestPlanGraphVisualizationToolsWebApp tests that generated graphs can be processed by visualization tools for web-app
 func TestPlanGraphVisualizationToolsWebApp(t *testing.T) {
+	// Skip if Google Cloud credentials are not available
+	if !hasGoogleCloudCredentials() {
+		t.Skip("Skipping web-app tests: Google Cloud application default credentials not available")
+	}
+
 	planFile := "web-app-plan.json"
 	testPlanGraphVisualizationTools(t, planFile, "web-app")
 }

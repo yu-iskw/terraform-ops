@@ -14,19 +14,16 @@
 
 TERRAFORM_OPS_PATH=../../build/terraform-ops
 
-# Default target - generate plan and JSON for web-app
-all: web-app-plan web-app-plan-json
+# Default target - generate plan and JSON for both workspaces
+all: web-app-plan-json simple-random-plan-json
 
-# Test both workspaces
-test: web-app-test simple-random-test
-
-# Web-app workspace targets
+# Web-app workspace targets (do not fail if these fail)
 web-app-plan:
-	cd workspaces/web-app && terraform init
-	cd workspaces/web-app && terraform plan --out=../web-app-plan.tfplan
+	@cd workspaces/web-app && terraform init || echo "[WARN] terraform init failed for web-app"
+	@cd workspaces/web-app && terraform plan --out=../web-app-plan.tfplan || echo "[WARN] terraform plan failed for web-app"
 
 web-app-plan-json: web-app-plan
-	cd workspaces/web-app && terraform show -json ../web-app-plan.tfplan > ../../web-app-plan.json
+	@cd workspaces/web-app && terraform show -json ../web-app-plan.tfplan > ../../web-app-plan.json || echo "[WARN] terraform show failed for web-app"
 
 # Simple-random workspace targets
 simple-random-plan:

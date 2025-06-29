@@ -58,7 +58,6 @@ test-show-terraform:
 test-integration-plan-graph:
 	$(MAKE) -C integration_tests/plan_graph all
 
-
 # Run tests with coverage
 coverage:
 	$(GOTEST) -v -coverprofile=coverage.out ./...
