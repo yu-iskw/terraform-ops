@@ -12,18 +12,43 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package plan_graph
+package commands
 
 import (
 	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"github.com/yu/terraform-ops/internal/core"
+	"github.com/yu/terraform-ops/internal/terraform/graph"
+	"github.com/yu/terraform-ops/internal/terraform/graph/generators"
+	"github.com/yu/terraform-ops/internal/terraform/plan"
 )
 
-// NewCommand creates a new plan-graph command
-func NewCommand() *cobra.Command {
-	var opts Options
+// PlanGraphCommand represents the plan-graph command with dependency injection
+type PlanGraphCommand struct {
+	planParser   core.PlanParser
+	graphBuilder core.GraphBuilder
+	genFactory   *generators.Factory
+}
+
+// NewPlanGraphCommand creates a new plan-graph command with injected dependencies
+func NewPlanGraphCommand(
+	planParser core.PlanParser,
+	graphBuilder core.GraphBuilder,
+	genFactory *generators.Factory,
+) *PlanGraphCommand {
+	return &PlanGraphCommand{
+		planParser:   planParser,
+		graphBuilder: graphBuilder,
+		genFactory:   genFactory,
+	}
+}
+
+// Command returns the cobra command for plan-graph
+func (c *PlanGraphCommand) Command() *cobra.Command {
+	var opts core.GraphOptions
 
 	cmd := &cobra.Command{
 		Use:   "plan-graph <PLAN_FILE>",
@@ -38,11 +63,11 @@ Supported output formats:
 - plantuml: PlantUML format
 
 Node types and their visual representation:
-- Resources: Green rectangles (with action-based colors)
+- Resources: House shapes (with action-based colors)
 - Data Sources: Cyan diamonds
-- Outputs: Blue ellipses/circles
-- Variables: Yellow parallelograms
-- Locals: Pink hexagons
+- Outputs: Blue inverted houses (exports)
+- Variables: Yellow cylinders (inputs)
+- Locals: Pink octagons (computed values)
 
 Examples:
   terraform-ops plan-graph plan.json
@@ -53,14 +78,14 @@ Examples:
   terraform-ops plan-graph --output graph.dot plan.json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runPlanGraph(args[0], opts)
+			return c.runPlanGraph(args[0], opts)
 		},
 	}
 
 	// Add flags
-	cmd.Flags().StringVarP((*string)(&opts.Format), "format", "f", string(FormatGraphviz), "Output format (graphviz, mermaid, plantuml)")
+	cmd.Flags().StringVarP((*string)(&opts.Format), "format", "f", string(core.FormatGraphviz), "Output format (graphviz, mermaid, plantuml)")
 	cmd.Flags().StringVarP(&opts.Output, "output", "o", "", "Output file path (default: stdout)")
-	cmd.Flags().StringVarP((*string)(&opts.GroupBy), "group-by", "g", string(GroupByModule), "Grouping strategy (module, action, resource_type)")
+	cmd.Flags().StringVarP((*string)(&opts.GroupBy), "group-by", "g", string(core.GroupByModule), "Grouping strategy (module, action, resource_type)")
 	cmd.Flags().BoolVar(&opts.NoDataSources, "no-data-sources", false, "Exclude data source resources from the graph")
 	cmd.Flags().BoolVar(&opts.NoOutputs, "no-outputs", false, "Exclude output values from the graph")
 	cmd.Flags().BoolVar(&opts.NoVariables, "no-variables", false, "Exclude variable values from the graph")
@@ -72,10 +97,10 @@ Examples:
 }
 
 // runPlanGraph executes the plan-graph command
-func runPlanGraph(planFile string, opts Options) error {
+func (c *PlanGraphCommand) runPlanGraph(planFile string, opts core.GraphOptions) error {
 	// Validate format
 	if !isValidFormat(opts.Format) {
-		return fmt.Errorf("unsupported format: %s. Supported formats: graphviz, mermaid, plantuml", opts.Format)
+		return &core.UnsupportedFormatError{Format: string(opts.Format)}
 	}
 
 	// Validate grouping strategy
@@ -88,7 +113,7 @@ func runPlanGraph(planFile string, opts Options) error {
 	}
 
 	// Parse the plan file
-	plan, err := ParsePlanFile(planFile)
+	plan, err := c.planParser.ParsePlanFile(planFile)
 	if err != nil {
 		return fmt.Errorf("failed to parse plan file: %w", err)
 	}
@@ -98,7 +123,7 @@ func runPlanGraph(planFile string, opts Options) error {
 	}
 
 	// Build graph data
-	graphData, err := BuildGraphData(plan, opts)
+	graphData, err := c.graphBuilder.BuildGraph(plan, opts)
 	if err != nil {
 		return fmt.Errorf("failed to build graph data: %w", err)
 	}
@@ -107,8 +132,14 @@ func runPlanGraph(planFile string, opts Options) error {
 		fmt.Fprintf(os.Stderr, "Generated graph with %d nodes and %d edges\n", len(graphData.Nodes), len(graphData.Edges))
 	}
 
+	// Create generator for the specified format
+	generator, err := c.genFactory.CreateGenerator(opts.Format)
+	if err != nil {
+		return fmt.Errorf("failed to create graph generator: %w", err)
+	}
+
 	// Generate the graph
-	graphOutput, err := GenerateGraph(graphData, opts)
+	graphOutput, err := generator.Generate(graphData, opts)
 	if err != nil {
 		return fmt.Errorf("failed to generate graph: %w", err)
 	}
@@ -129,9 +160,9 @@ func runPlanGraph(planFile string, opts Options) error {
 }
 
 // isValidFormat checks if the format is supported
-func isValidFormat(format GraphFormat) bool {
+func isValidFormat(format core.GraphFormat) bool {
 	switch format {
-	case FormatGraphviz, FormatMermaid, FormatPlantUML:
+	case core.FormatGraphviz, core.FormatMermaid, core.FormatPlantUML:
 		return true
 	default:
 		return false
@@ -139,11 +170,20 @@ func isValidFormat(format GraphFormat) bool {
 }
 
 // isValidGrouping checks if the grouping strategy is supported
-func isValidGrouping(grouping GroupingStrategy) bool {
+func isValidGrouping(grouping core.GroupingStrategy) bool {
 	switch grouping {
-	case GroupByModule, GroupByAction, GroupByResourceType:
+	case core.GroupByModule, core.GroupByAction, core.GroupByResourceType:
 		return true
 	default:
 		return false
 	}
+}
+
+// DefaultPlanGraphCommand creates a plan-graph command with default dependencies
+func DefaultPlanGraphCommand() *PlanGraphCommand {
+	return NewPlanGraphCommand(
+		plan.NewParser(),
+		graph.NewBuilder(),
+		generators.NewFactory(),
+	)
 }

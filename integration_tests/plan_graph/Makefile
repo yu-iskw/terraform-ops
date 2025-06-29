@@ -105,4 +105,8 @@ simple-random-test: simple-random-plan-json
 	$(TERRAFORM_OPS_PATH) plan-graph simple-random-plan.json --format=mermaid
 	$(TERRAFORM_OPS_PATH) plan-graph simple-random-plan.json --format=plantuml
 
-.PHONY: all web-app-plan web-app-plan-json simple-random-plan simple-random-plan-json all-plans clean clean-all web-app-graph-graphviz web-app-graph-mermaid web-app-graph-plantuml simple-random-graph-graphviz simple-random-graph-mermaid simple-random-graph-plantuml web-app-graphs simple-random-graphs web-app-test simple-random-test test
+# Validate simple-random output files
+check-simple-random-outputs: simple-random-graphs
+	../../scripts/check-simple-random-outputs.sh
+
+.PHONY: all web-app-plan web-app-plan-json simple-random-plan simple-random-plan-json all-plans clean clean-all web-app-graph-graphviz web-app-graph-mermaid web-app-graph-plantuml simple-random-graph-graphviz simple-random-graph-mermaid simple-random-graph-plantuml web-app-graphs simple-random-graphs web-app-test simple-random-test test check-simple-random-outputs

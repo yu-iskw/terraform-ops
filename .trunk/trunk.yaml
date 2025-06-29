@@ -17,6 +17,12 @@ runtimes:
     - python@3.10.8
 # This is the section where you manage your linters. (https://docs.trunk.io/check/configuration)
 lint:
+  ignore:
+    - linters:
+        - trivy
+      paths:
+        - integration_tests/plan_graph/workspaces/**/*.tf
+        - actions/plan-graph/Dockerfile
   disabled:
     - checkov
   enabled:

@@ -220,9 +220,9 @@ make test-integration-plan-graph
 
 ## Expected Output Validation
 
-### Web-App Workspace
+### Output Validation: Web-App Workspace
 
-#### Graphviz Output
+#### Web-App Graphviz Output
 
 - Contains `digraph terraform_plan`
 - Includes `rankdir=TB` for top-to-bottom layout
@@ -231,23 +231,23 @@ make test-integration-plan-graph
 - Shows action types like `[CREATE]`
 - Contains module groupings: `root`, `module.app`, `module.network`, `module.app.module.database`
 
-#### Mermaid Output
+#### Web-App Mermaid Output
 
 - Starts with `graph TB`
 - Contains `subgraph` and `end` statements
 - Includes all expected resources
 - Shows action types
 
-#### PlantUML Output
+#### Web-App PlantUML Output
 
 - Starts with `@startuml` and ends with `@enduml`
 - Contains `package` declarations
 - Includes all expected resources
 - Shows action types
 
-### Simple-Random Workspace
+### Output Validation: Simple-Random Workspace
 
-#### Graphviz Output
+#### Simple-Random Graphviz Output
 
 - Contains `digraph terraform_plan`
 - Includes `rankdir=TB` for top-to-bottom layout
@@ -256,14 +256,14 @@ make test-integration-plan-graph
 - Shows action types like `[CREATE]`
 - Contains only `root` module grouping
 
-#### Mermaid Output
+#### Simple-Random Mermaid Output
 
 - Starts with `graph TB`
 - Contains `subgraph` and `end` statements
 - Includes all expected random resources
 - Shows action types
 
-#### PlantUML Output
+#### Simple-Random PlantUML Output
 
 - Starts with `@startuml` and ends with `@enduml`
 - Contains `package` declarations
@@ -272,7 +272,7 @@ make test-integration-plan-graph
 
 ## Visualization Tool Validation
 
-### Graphviz
+### Graphviz Tool Validation
 
 The test checks if the `dot` command can parse the generated DOT file:
 
@@ -280,7 +280,7 @@ The test checks if the `dot` command can parse the generated DOT file:
 dot -Tsvg -o /dev/null generated-graph.dot
 ```
 
-### Mermaid
+### Mermaid Tool Validation
 
 Validates basic Mermaid syntax:
 
@@ -288,7 +288,7 @@ Validates basic Mermaid syntax:
 - Contains subgraph declarations
 - Has proper end statements
 
-### PlantUML
+### PlantUML Tool Validation
 
 Validates basic PlantUML syntax:
 
@@ -298,7 +298,7 @@ Validates basic PlantUML syntax:
 
 ## Dynamic Plan Structure
 
-### Web-App Plan
+### Plan Structure: Web-App Workspace
 
 The dynamically generated web-app plan includes:
 
@@ -308,7 +308,7 @@ The dynamically generated web-app plan includes:
 - **Dependencies**: Between VPC, subnets, firewall, and compute resources, plus random resource dependencies
 - **Changing resources**: Random resources that regenerate between plan runs due to timestamp keepers
 
-### Simple-Random Plan
+### Plan Structure: Simple-Random Workspace
 
 The dynamically generated simple-random plan includes:
 

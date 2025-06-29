@@ -139,16 +139,16 @@ Suitable for integration with documentation systems that support PlantUML.
 
 ## Node Types and Visual Representation
 
-- **Resources**: Rectangles with action-based colors
+- **Resources**: House shapes with action-based colors
   - Create: Green
   - Update: Yellow
   - Delete: Red
   - Replace: Orange
   - No-op: Gray
 - **Data Sources**: Cyan diamonds
-- **Outputs**: Blue ellipses/circles
-- **Variables**: Yellow parallelograms
-- **Locals**: Pink hexagons
+- **Outputs**: Blue inverted houses (exports)
+- **Variables**: Yellow cylinders (inputs)
+- **Locals**: Pink octagons (computed values)
 
 ## Prerequisites
 

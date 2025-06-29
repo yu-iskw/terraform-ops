@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/yu/terraform-ops/internal/show_terraform"
+	"github.com/yu/terraform-ops/internal/terraform/config"
 	"github.com/yu/terraform-ops/pkg/terraform"
 )
 
@@ -37,8 +37,9 @@ func main() {
 	// Example workspace path (this would be a real workspace in practice)
 	workspacePath := "./test/workspaces/gcs-backend"
 
-	// Get Terraform information from the workspace
-	infos, err := show_terraform.GetTerraformInfo([]string{workspacePath})
+	// Get Terraform information from the workspace using the new config parser
+	parser := config.NewParser()
+	infos, err := parser.ParseConfigFiles([]string{workspacePath})
 	if err != nil {
 		log.Printf("Error getting Terraform info: %v", err)
 		return
@@ -51,25 +52,25 @@ func main() {
 
 	info := infos[0]
 	fmt.Printf("Workspace: %s\n", info.Path)
-	fmt.Printf("Required Version: %s\n", info.Terraform.RequiredVersion)
+	fmt.Printf("Required Version: %s\n", info.RequiredVersion)
 
 	// Check if backend is configured
-	if info.Terraform.Backend != nil {
-		fmt.Printf("Backend Type: %s\n", info.Terraform.Backend.Type)
+	if info.Backend != nil {
+		fmt.Printf("Backend Type: %s\n", info.Backend.Type)
 		fmt.Printf("Backend Config:\n")
-		for key, value := range info.Terraform.Backend.Config {
+		for key, value := range info.Backend.Config {
 			fmt.Printf("  %s: %s\n", key, value)
 		}
 
 		// Specifically check for impersonate_service_account
-		if impersonateSA, exists := info.Terraform.Backend.Config["impersonate_service_account"]; exists {
+		if impersonateSA, exists := info.Backend.Config["impersonate_service_account"]; exists {
 			fmt.Printf("\nService Account Impersonation: %s\n", impersonateSA)
 		}
 	}
 
 	// Display required providers
 	fmt.Printf("\nRequired Providers:\n")
-	for provider, version := range info.Terraform.RequiredProviders {
+	for provider, version := range info.RequiredProviders {
 		if version == "" {
 			fmt.Printf("  %s: (no version constraint)\n", provider)
 		} else {

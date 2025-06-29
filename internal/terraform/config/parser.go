@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package show_terraform
+package config
 
 import (
 	"fmt"
@@ -24,88 +24,75 @@ import (
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclparse"
 	"github.com/zclconf/go-cty/cty"
+
+	"github.com/yu/terraform-ops/internal/core"
 )
 
-// Backend represents the backend configuration discovered in a terraform block.
-// Type is the backend type (e.g., "s3", "gcs", "azurerm")
-// Config holds any key/value settings found within the backend block. Only
-// primitive (string, number, bool) values are captured – complex types are ignored.
-type Backend struct {
-	Type   string            `json:"type"`
-	Config map[string]string `json:"config,omitempty"`
+// Parser implements the core.ConfigParser interface
+type Parser struct{}
+
+// NewParser creates a new configuration parser
+func NewParser() *Parser {
+	return &Parser{}
 }
 
-// TerraformConfig represents the terraform block configuration details.
-type TerraformConfig struct {
-	RequiredVersion   string            `json:"required_version,omitempty"`
-	Backend           *Backend          `json:"backend,omitempty"`
-	RequiredProviders map[string]string `json:"required_providers"`
-}
+// ParseConfigFiles scans the provided paths (non-recursive) for *.tf files and
+// extracts information from the terraform block
+func (p *Parser) ParseConfigFiles(paths []string) ([]core.TerraformConfig, error) {
+	var allConfigs []core.TerraformConfig
 
-// TerraformInfo represents the aggregated information for a workspace directory.
-type TerraformInfo struct {
-	Path      string          `json:"path"`
-	Terraform TerraformConfig `json:"terraform"`
-}
-
-// GetTerraformInfo scans the provided paths (non-recursive) for *.tf files and
-// extracts information from the terraform block: required_version, backend, and
-// required_providers. It returns a slice ordered in the same order as the input
-// paths. Any individual workspace errors are printed to stderr, but do not stop
-// processing of remaining paths.
-func GetTerraformInfo(paths []string) ([]TerraformInfo, error) {
-	var allInfo []TerraformInfo
-
-	for _, p := range paths {
-		absPath, err := filepath.Abs(p)
+	for _, path := range paths {
+		absPath, err := filepath.Abs(path)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error getting absolute path for '%s': %v\n", p, err)
-			continue
+			return nil, &core.ConfigParseError{
+				Path:    path,
+				Message: "failed to get absolute path",
+				Cause:   err,
+			}
 		}
 
-		info, err := os.Stat(p)
+		info, err := os.Stat(path)
 		if os.IsNotExist(err) || !info.IsDir() {
-			fmt.Fprintf(os.Stderr, "Error: Path '%s' does not exist or is not a directory\n", p)
-			continue
+			return nil, &core.ConfigParseError{
+				Path:    path,
+				Message: "path does not exist or is not a directory",
+				Cause:   err,
+			}
 		}
 
-		tfFiles, err := findTerraformFiles(p)
+		tfFiles, err := p.findTerraformFiles(path)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
-			continue
+			return nil, &core.ConfigParseError{
+				Path:    path,
+				Message: "failed to find terraform files",
+				Cause:   err,
+			}
 		}
 
-		workspace := TerraformInfo{
-			Path:      absPath,
-			Terraform: TerraformConfig{RequiredProviders: map[string]string{}},
+		config := core.TerraformConfig{
+			Path:              absPath,
+			RequiredProviders: map[string]string{},
 		}
 
 		for _, filePath := range tfFiles {
-			src, err := os.ReadFile(filePath)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error reading file '%s': %v\n", filePath, err)
-				continue
-			}
-
-			// Extract info from this file
-			err = collectFromFile(filePath, src, &workspace)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%v\n", err)
+			if err := p.collectFromFile(filePath, &config); err != nil {
+				// Log error but continue processing other files
+				fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
 				continue
 			}
 		}
 
-		allInfo = append(allInfo, workspace)
+		allConfigs = append(allConfigs, config)
 	}
 
-	return allInfo, nil
+	return allConfigs, nil
 }
 
-// findTerraformFiles discovers all .tf files directly under the specified directory.
-func findTerraformFiles(dirPath string) ([]string, error) {
+// findTerraformFiles discovers all .tf files directly under the specified directory
+func (p *Parser) findTerraformFiles(dirPath string) ([]string, error) {
 	entries, err := os.ReadDir(dirPath)
 	if err != nil {
-		return nil, fmt.Errorf("error reading directory '%s': %v", dirPath, err)
+		return nil, fmt.Errorf("error reading directory '%s': %w", dirPath, err)
 	}
 
 	var tfFiles []string
@@ -120,12 +107,25 @@ func findTerraformFiles(dirPath string) ([]string, error) {
 	return tfFiles, nil
 }
 
-// collectFromFile parses an individual .tf file and populates the provided TerraformInfo pointer.
-func collectFromFile(filePath string, src []byte, dest *TerraformInfo) error {
+// collectFromFile parses an individual .tf file and populates the provided TerraformConfig
+func (p *Parser) collectFromFile(filePath string, dest *core.TerraformConfig) error {
+	src, err := os.ReadFile(filePath)
+	if err != nil {
+		return &core.ConfigParseError{
+			Path:    filePath,
+			Message: "failed to read file",
+			Cause:   err,
+		}
+	}
+
 	parser := hclparse.NewParser()
 	hclFile, diags := parser.ParseHCL(src, filepath.Base(filePath))
 	if diags.HasErrors() {
-		return fmt.Errorf("error parsing file '%s': %v", filePath, diags.Error())
+		return &core.ConfigParseError{
+			Path:    filePath,
+			Message: "failed to parse HCL",
+			Cause:   diags,
+		}
 	}
 
 	if hclFile == nil || hclFile.Body == nil {
@@ -140,7 +140,11 @@ func collectFromFile(filePath string, src []byte, dest *TerraformInfo) error {
 
 	content, _, diags := hclFile.Body.PartialContent(rootSchema)
 	if diags.HasErrors() {
-		return fmt.Errorf("error processing content of '%s': %v", filePath, diags.Error())
+		return &core.ConfigParseError{
+			Path:    filePath,
+			Message: "failed to process content",
+			Cause:   diags,
+		}
 	}
 
 	for _, block := range content.Blocks {
@@ -170,8 +174,8 @@ func collectFromFile(filePath string, src []byte, dest *TerraformInfo) error {
 			if val.Type().IsPrimitiveType() {
 				v := val.AsString()
 				// prefer first non-empty encountered required_version
-				if dest.Terraform.RequiredVersion == "" && v != "" {
-					dest.Terraform.RequiredVersion = v
+				if dest.RequiredVersion == "" && v != "" {
+					dest.RequiredVersion = v
 				}
 			}
 		}
@@ -180,9 +184,9 @@ func collectFromFile(filePath string, src []byte, dest *TerraformInfo) error {
 		for _, b := range bodyContent.Blocks {
 			switch b.Type {
 			case "required_providers":
-				parseRequiredProvidersBlock(b.Body, dest.Terraform.RequiredProviders, filePath)
+				p.parseRequiredProvidersBlock(b.Body, dest.RequiredProviders, filePath)
 			case "backend":
-				parseBackendBlock(b, &dest.Terraform, filePath)
+				p.parseBackendBlock(b, dest, filePath)
 			}
 		}
 	}
@@ -190,8 +194,8 @@ func collectFromFile(filePath string, src []byte, dest *TerraformInfo) error {
 	return nil
 }
 
-// parseRequiredProvidersBlock fills providers map with any versions found.
-func parseRequiredProvidersBlock(body hcl.Body, providers map[string]string, filePath string) {
+// parseRequiredProvidersBlock fills providers map with any versions found
+func (p *Parser) parseRequiredProvidersBlock(body hcl.Body, providers map[string]string, filePath string) {
 	attrs, diags := body.JustAttributes()
 	if diags.HasErrors() {
 		fmt.Fprintf(os.Stderr, "Warning: Error getting attributes from required_providers block in '%s': %v\n", filePath, diags.Error())
@@ -210,6 +214,9 @@ func parseRequiredProvidersBlock(body hcl.Body, providers map[string]string, fil
 			if v, ok := val.AsValueMap()["version"]; ok && v.Type().IsPrimitiveType() {
 				version = v.AsString()
 			}
+		} else if val.Type().IsPrimitiveType() {
+			// Handle simple string version constraints
+			version = val.AsString()
 		}
 
 		// overwrite or set
@@ -217,19 +224,19 @@ func parseRequiredProvidersBlock(body hcl.Body, providers map[string]string, fil
 	}
 }
 
-// parseBackendBlock extracts backend type and simple config attributes.
-func parseBackendBlock(block *hcl.Block, dest *TerraformConfig, filePath string) {
+// parseBackendBlock extracts backend type and simple config attributes
+func (p *Parser) parseBackendBlock(block *hcl.Block, dest *core.TerraformConfig, filePath string) {
 	if len(block.Labels) == 0 {
 		return // malformed backend block
 	}
 	backendType := block.Labels[0]
 
-	// If we already have a backend recorded, skip subsequent ones to keep first occurrence.
+	// If we already have a backend recorded, skip subsequent ones to keep first occurrence
 	if dest.Backend != nil {
 		return
 	}
 
-	backendInfo := &Backend{
+	backendInfo := &core.Backend{
 		Type:   backendType,
 		Config: map[string]string{},
 	}

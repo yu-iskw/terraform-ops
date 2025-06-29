@@ -442,14 +442,14 @@ func testPlanGraphFormat(t *testing.T, planFile, format, workspace string) {
 	}
 }
 
-// validateGraphvizOutput validates Graphviz DOT format output
+// validateGraphvizOutput validates Graphviz format output
 func validateGraphvizOutput(t *testing.T, output, workspace string) {
 	assert.Contains(t, output, "digraph terraform_plan")
 	assert.Contains(t, output, "rankdir=TB")
-	assert.Contains(t, output, "node [shape=box")
 	assert.Contains(t, output, "subgraph cluster_")
 
-	if workspace == "web-app" {
+	switch workspace {
+	case "web-app":
 		// Should contain expected resources from web-app plan (GCP)
 		assert.Contains(t, output, "google_compute_network.main")
 		assert.Contains(t, output, "google_compute_subnetwork.public")
@@ -470,7 +470,7 @@ func validateGraphvizOutput(t *testing.T, output, workspace string) {
 		assert.Contains(t, output, "module.app")
 		assert.Contains(t, output, "module.network")
 		assert.Contains(t, output, "module.app.module.database")
-	} else if workspace == "simple-random" {
+	case "simple-random":
 		// Should contain expected resources from simple-random plan
 		assert.Contains(t, output, "random_id.test_id")
 		assert.Contains(t, output, "random_string.test_string")
@@ -493,7 +493,8 @@ func validateMermaidOutput(t *testing.T, output, workspace string) {
 	assert.Contains(t, output, "subgraph")
 	assert.Contains(t, output, "end")
 
-	if workspace == "web-app" {
+	switch workspace {
+	case "web-app":
 		// Should contain expected resources from web-app plan (GCP)
 		assert.Contains(t, output, "google_compute_network.main")
 		assert.Contains(t, output, "google_compute_subnetwork.public")
@@ -508,7 +509,7 @@ func validateMermaidOutput(t *testing.T, output, workspace string) {
 		assert.Contains(t, output, "random_string.session_token")
 		assert.Contains(t, output, "random_password.app_secret")
 		assert.Contains(t, output, "random_uuid.correlation_id")
-	} else if workspace == "simple-random" {
+	case "simple-random":
 		// Should contain expected resources from simple-random plan
 		assert.Contains(t, output, "random_id.test_id")
 		assert.Contains(t, output, "random_string.test_string")
@@ -528,7 +529,8 @@ func validatePlantUMLOutput(t *testing.T, output, workspace string) {
 	assert.Contains(t, output, "@enduml")
 	assert.Contains(t, output, "package")
 
-	if workspace == "web-app" {
+	switch workspace {
+	case "web-app":
 		// Should contain expected resources from web-app plan (GCP)
 		assert.Contains(t, output, "google_compute_network.main")
 		assert.Contains(t, output, "google_compute_subnetwork.public")
@@ -543,7 +545,7 @@ func validatePlantUMLOutput(t *testing.T, output, workspace string) {
 		assert.Contains(t, output, "random_string.session_token")
 		assert.Contains(t, output, "random_password.app_secret")
 		assert.Contains(t, output, "random_uuid.correlation_id")
-	} else if workspace == "simple-random" {
+	case "simple-random":
 		// Should contain expected resources from simple-random plan
 		assert.Contains(t, output, "random_id.test_id")
 		assert.Contains(t, output, "random_string.test_string")
