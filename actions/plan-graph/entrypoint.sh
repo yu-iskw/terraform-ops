@@ -3,16 +3,15 @@
 set -e
 
 # GitHub Action inputs are available as environment variables with INPUT_ prefix
-PLAN_FILE="${INPUT_PLAN-FILE}"
+PLAN_FILE="${INPUT_PLAN_FILE}"
 FORMAT="${INPUT_FORMAT:-graphviz}"
-OUTPUT_FILE="${INPUT_OUTPUT-FILE}"
-GROUP_BY="${INPUT_GROUP-BY:-module}"
-SHOW_DEPENDENCIES="${INPUT_SHOW-DEPENDENCIES:-true}"
-SHOW_SENSITIVITY="${INPUT_SHOW-SENSITIVITY:-false}"
-SHOW_OUTPUTS="${INPUT_SHOW-OUTPUTS:-false}"
-SHOW_VARIABLES="${INPUT_SHOW-VARIABLES:-false}"
-SHOW_LOCALS="${INPUT_SHOW-LOCALS:-false}"
-SHOW_DATA_SOURCES="${INPUT_SHOW-DATA-SOURCES:-false}"
+OUTPUT_FILE="${INPUT_OUTPUT_FILE}"
+GROUP_BY="${INPUT_GROUP_BY:-module}"
+NO_DATA_SOURCES="${INPUT_NO_DATA_SOURCES:-false}"
+NO_OUTPUTS="${INPUT_NO_OUTPUTS:-false}"
+NO_VARIABLES="${INPUT_NO_VARIABLES:-false}"
+NO_LOCALS="${INPUT_NO_LOCALS:-false}"
+NO_MODULES="${INPUT_NO_MODULES:-false}"
 COMPACT="${INPUT_COMPACT:-false}"
 VERBOSE="${INPUT_VERBOSE:-false}"
 
@@ -33,29 +32,25 @@ ARGS="plan-graph"
 ARGS="${ARGS} --format ${FORMAT}"
 ARGS="${ARGS} --group-by ${GROUP_BY}"
 
-# Add boolean flags
-if [ "${SHOW_DEPENDENCIES}" = "false" ]; then
-	ARGS="${ARGS} --show-dependencies=false"
+# Add boolean flags (only add --no-* flags when they are true)
+if [ "${NO_DATA_SOURCES}" = "true" ]; then
+	ARGS="${ARGS} --no-data-sources"
 fi
 
-if [ "${SHOW_SENSITIVITY}" = "true" ]; then
-	ARGS="${ARGS} --show-sensitivity"
+if [ "${NO_OUTPUTS}" = "true" ]; then
+	ARGS="${ARGS} --no-outputs"
 fi
 
-if [ "${SHOW_OUTPUTS}" = "true" ]; then
-	ARGS="${ARGS} --show-outputs"
+if [ "${NO_VARIABLES}" = "true" ]; then
+	ARGS="${ARGS} --no-variables"
 fi
 
-if [ "${SHOW_VARIABLES}" = "true" ]; then
-	ARGS="${ARGS} --show-variables"
+if [ "${NO_LOCALS}" = "true" ]; then
+	ARGS="${ARGS} --no-locals"
 fi
 
-if [ "${SHOW_LOCALS}" = "true" ]; then
-	ARGS="${ARGS} --show-locals"
-fi
-
-if [ "${SHOW_DATA_SOURCES}" = "true" ]; then
-	ARGS="${ARGS} --show-data-sources"
+if [ "${NO_MODULES}" = "true" ]; then
+	ARGS="${ARGS} --no-modules"
 fi
 
 if [ "${COMPACT}" = "true" ]; then

@@ -33,6 +33,10 @@ func (b *Builder) analyzeDependencies(plan *core.TerraformPlan, opts core.GraphO
 		if change.Mode == "data" && opts.NoDataSources {
 			continue
 		}
+		// Skip resources from modules if disabled
+		if opts.NoModules && change.ModuleAddress != "" {
+			continue
+		}
 		resourceMap[change.Address] = sanitizeID(change.Address)
 	}
 
@@ -88,6 +92,10 @@ func (b *Builder) analyzeDependencies(plan *core.TerraformPlan, opts core.GraphO
 
 		// Extract dependencies from module calls
 		for moduleName, moduleCall := range plan.Configuration.RootModule.ModuleCalls {
+			// Skip module dependencies if modules are disabled
+			if opts.NoModules {
+				continue
+			}
 			if opts.Verbose {
 				fmt.Fprintf(os.Stderr, "Debug: Processing module: %s\n", moduleName)
 			}
@@ -149,12 +157,12 @@ func (b *Builder) extractModuleDependencies(moduleName string, moduleCall core.M
 			for resourceAddr, resourceID := range resourceMap {
 				if strings.HasPrefix(resourceAddr, modulePrefix) {
 					edge := core.GraphEdge{
-						From: resourceID,
-						To:   sanitizeID(resolvedDep),
+						From: sanitizeID(resolvedDep),
+						To:   resourceID,
 					}
 					edges = append(edges, edge)
 					if opts.Verbose {
-						fmt.Fprintf(os.Stderr, "Debug: Added cross-module dependency edge: %s -> %s\n", resourceID, sanitizeID(resolvedDep))
+						fmt.Fprintf(os.Stderr, "Debug: Added cross-module dependency edge: %s -> %s\n", sanitizeID(resolvedDep), resourceID)
 					}
 				}
 			}
@@ -172,11 +180,12 @@ func (b *Builder) extractModuleDependencies(moduleName string, moduleCall core.M
 
 		// Extract dependencies from nested module resources
 		for _, resource := range moduleCall.Module.Resources {
-			fullAddress := modulePrefix + "." + resource.Address
+			// Use the resource's existing address instead of constructing a new one
+			// The resource.Address should already be correct (e.g., "module.network.aws_subnet.public")
 			if opts.Verbose {
-				fmt.Fprintf(os.Stderr, "Debug: Processing nested resource: %s\n", fullAddress)
+				fmt.Fprintf(os.Stderr, "Debug: Processing nested resource: %s\n", resource.Address)
 			}
-			resourceEdges := b.extractResourceDependencies(fullAddress, resource, resourceMap, opts)
+			resourceEdges := b.extractResourceDependencies(resource.Address, resource, resourceMap, opts)
 			edges = append(edges, resourceEdges...)
 		}
 
@@ -215,8 +224,8 @@ func (b *Builder) extractNestedModuleDependencies(modulePrefix string, moduleCal
 			for resourceAddr, resourceID := range resourceMap {
 				if strings.HasPrefix(resourceAddr, modulePrefix) {
 					edge := core.GraphEdge{
-						From: resourceID,
-						To:   sanitizeID(ref),
+						From: sanitizeID(ref),
+						To:   resourceID,
 					}
 					edges = append(edges, edge)
 				}
@@ -228,8 +237,9 @@ func (b *Builder) extractNestedModuleDependencies(modulePrefix string, moduleCal
 	if moduleCall.Module != nil {
 		// Extract dependencies from nested module resources
 		for _, resource := range moduleCall.Module.Resources {
-			fullAddress := modulePrefix + "." + resource.Address
-			resourceEdges := b.extractResourceDependencies(fullAddress, resource, resourceMap, opts)
+			// Use the resource's existing address instead of constructing a new one
+			// The resource.Address should already be correct
+			resourceEdges := b.extractResourceDependencies(resource.Address, resource, resourceMap, opts)
 			edges = append(edges, resourceEdges...)
 		}
 
@@ -296,20 +306,20 @@ func (b *Builder) extractResourceDependencies(resourceAddress string, resource c
 
 	// Helper function to add edge if it doesn't exist
 	addEdge := func(toAddress string, edgeType string) {
-		edgeKey := fromID + "->" + sanitizeID(toAddress)
+		edgeKey := sanitizeID(toAddress) + "->" + fromID
 		if !edgeMap[edgeKey] {
 			edge := core.GraphEdge{
-				From: fromID,
-				To:   sanitizeID(toAddress),
+				From: sanitizeID(toAddress),
+				To:   fromID,
 			}
 			edges = append(edges, edge)
 			edgeMap[edgeKey] = true
 			if opts.Verbose {
-				fmt.Fprintf(os.Stderr, "Debug: Added %s dependency edge: %s -> %s\n", edgeType, fromID, sanitizeID(toAddress))
+				fmt.Fprintf(os.Stderr, "Debug: Added %s dependency edge: %s -> %s\n", edgeType, sanitizeID(toAddress), fromID)
 			}
 		} else {
 			if opts.Verbose {
-				fmt.Fprintf(os.Stderr, "Debug: Skipped duplicate edge: %s -> %s\n", fromID, sanitizeID(toAddress))
+				fmt.Fprintf(os.Stderr, "Debug: Skipped duplicate edge: %s -> %s\n", sanitizeID(toAddress), fromID)
 			}
 		}
 	}
@@ -379,6 +389,53 @@ func (b *Builder) resolveDependencyAddress(ref string, modulePrefix string, reso
 		return ref
 	}
 
+	// Handle data source references with attributes (e.g., data.aws_subnet.selected.id)
+	if strings.HasPrefix(ref, "data.") {
+		// Remove any attribute references (e.g., ".id", ".name", ".names")
+		refParts := strings.Split(ref, ".")
+		if len(refParts) >= 3 {
+			// Reconstruct the data source reference without attributes
+			// data.aws_subnet.selected.id -> data.aws_subnet.selected
+			dataSourceRef := strings.Join(refParts[:3], ".")
+			if _, exists := resourceMap[dataSourceRef]; exists {
+				if opts.Verbose {
+					fmt.Fprintf(os.Stderr, "Debug: Resolved data source reference %s to %s\n", ref, dataSourceRef)
+				}
+				return dataSourceRef
+			}
+		}
+	}
+
+	// Handle resource references with attributes (e.g., aws_vpc.main.id)
+	refParts := strings.Split(ref, ".")
+	if len(refParts) >= 2 {
+		// Reconstruct the resource reference without attributes
+		resourceRef := strings.Join(refParts[:2], ".")
+		if _, exists := resourceMap[resourceRef]; exists {
+			if opts.Verbose {
+				fmt.Fprintf(os.Stderr, "Debug: Resolved resource reference %s to %s\n", ref, resourceRef)
+			}
+			return resourceRef
+		}
+	}
+
+	// Handle module output references (e.g., module.network.aws_subnet.public.id)
+	if strings.HasPrefix(ref, "module.") {
+		// Remove any attribute references (e.g., ".id", ".name", ".names")
+		refParts := strings.Split(ref, ".")
+		if len(refParts) >= 4 {
+			// Reconstruct the module resource reference without attributes
+			// module.network.aws_subnet.public.id -> module.network.aws_subnet.public
+			moduleResourceRef := strings.Join(refParts[:4], ".")
+			if _, exists := resourceMap[moduleResourceRef]; exists {
+				if opts.Verbose {
+					fmt.Fprintf(os.Stderr, "Debug: Resolved module resource reference %s to %s\n", ref, moduleResourceRef)
+				}
+				return moduleResourceRef
+			}
+		}
+	}
+
 	// If we have a module prefix and the reference doesn't start with "module."
 	// then it's likely a local reference within the module
 	if modulePrefix != "" && !strings.HasPrefix(ref, "module.") {
@@ -394,41 +451,6 @@ func (b *Builder) resolveDependencyAddress(ref string, modulePrefix string, reso
 					fmt.Fprintf(os.Stderr, "Debug: Resolved local reference %s to %s\n", ref, fullRef)
 				}
 				return fullRef
-			}
-		}
-	}
-
-	// Handle module output references (e.g., module.network.network_id)
-	if strings.HasPrefix(ref, "module.") {
-		// This is a module output reference, we need to find the actual resource
-		// For now, we'll use a heuristic based on common output patterns
-		if strings.Contains(ref, ".network_id") {
-			// Look for google_compute_network resources in that module
-			moduleNameParts := strings.Split(ref, ".")
-			if len(moduleNameParts) >= 2 {
-				moduleName := strings.Join(moduleNameParts[:2], ".")
-				for resourceAddr := range resourceMap {
-					if strings.HasPrefix(resourceAddr, moduleName+".") && strings.Contains(resourceAddr, "google_compute_network") {
-						if opts.Verbose {
-							fmt.Fprintf(os.Stderr, "Debug: Resolved module output %s to network resource %s\n", ref, resourceAddr)
-						}
-						return resourceAddr
-					}
-				}
-			}
-		} else if strings.Contains(ref, ".subnet_id") {
-			// Look for google_compute_subnetwork resources in that module
-			moduleNameParts := strings.Split(ref, ".")
-			if len(moduleNameParts) >= 2 {
-				moduleName := strings.Join(moduleNameParts[:2], ".")
-				for resourceAddr := range resourceMap {
-					if strings.HasPrefix(resourceAddr, moduleName+".") && strings.Contains(resourceAddr, "google_compute_subnetwork") {
-						if opts.Verbose {
-							fmt.Fprintf(os.Stderr, "Debug: Resolved module output %s to subnet resource %s\n", ref, resourceAddr)
-						}
-						return resourceAddr
-					}
-				}
 			}
 		}
 	}
@@ -522,6 +544,15 @@ func isResourceReference(ref string, opts core.GraphOptions) bool {
 		return false
 	}
 
+	// Check for data source references (data.resource_type.resource_name)
+	if parts[0] == "data" && len(parts) >= 3 {
+		// The second part should be a resource type (e.g., aws_subnet)
+		resourceTypeParts := strings.Split(parts[1], "_")
+		if len(resourceTypeParts) >= 2 {
+			return true
+		}
+	}
+
 	// Check if it starts with a valid resource type pattern
 	// Since we're parsing from a valid Terraform plan, any resource type
 	// that follows the provider_resource_type pattern should be considered valid
@@ -531,58 +562,73 @@ func isResourceReference(ref string, opts core.GraphOptions) bool {
 		return true
 	}
 
-	// Also check for module references
+	// Check for module references
 	if firstPart == "module" && len(parts) >= 3 {
+		return true
+	}
+
+	// Check for local references
+	if firstPart == "local" && len(parts) >= 2 {
+		return true
+	}
+
+	// Check for variable references
+	if firstPart == "var" && len(parts) >= 2 {
 		return true
 	}
 
 	return false
 }
 
-// extractOutputDependencies extracts dependency relationships for output configurations
+// extractOutputDependencies extracts dependencies for outputs
 func (b *Builder) extractOutputDependencies(outputAddress string, outputConfig core.OutputConfig, resourceMap map[string]string, opts core.GraphOptions) []core.GraphEdge {
-	var edges []core.GraphEdge
-
+	edges := []core.GraphEdge{}
 	if opts.Verbose {
 		fmt.Fprintf(os.Stderr, "Debug: extractOutputDependencies for output: %s\n", outputAddress)
 	}
 
-	// Extract dependencies from output expression
-	if outputConfig.Expression != nil {
-		implicitDeps := b.extractResourceReferences(outputConfig.Expression, opts)
-		if opts.Verbose {
-			fmt.Fprintf(os.Stderr, "Debug: Found %d dependencies in output expression\n", len(implicitDeps))
-			for _, dep := range implicitDeps {
-				fmt.Fprintf(os.Stderr, "Debug: Output dependency: %s\n", dep)
-			}
-		}
+	// Use a map to track unique edges and avoid duplicates
+	edgeMap := make(map[string]bool)
+	fromID := sanitizeID(outputAddress)
 
-		for _, ref := range implicitDeps {
-			// Resolve the dependency address
-			resolvedDep := b.resolveDependencyAddress(ref, "", resourceMap, opts)
-			if resolvedDep == "" {
-				if opts.Verbose {
-					fmt.Fprintf(os.Stderr, "Debug: Could not resolve output dependency %s\n", ref)
-				}
-				continue
-			}
-
-			// Create edge from the resource to the output (output depends on resource)
+	// Helper function to add edge if it doesn't exist
+	addEdge := func(toAddress string) {
+		edgeKey := sanitizeID(toAddress) + "->" + fromID
+		if !edgeMap[edgeKey] {
 			edge := core.GraphEdge{
-				From: sanitizeID(resolvedDep),
-				To:   sanitizeID(outputAddress),
+				From: sanitizeID(toAddress),
+				To:   fromID,
 			}
 			edges = append(edges, edge)
-
+			edgeMap[edgeKey] = true
 			if opts.Verbose {
-				fmt.Fprintf(os.Stderr, "Debug: Added output dependency edge: %s -> %s\n", sanitizeID(resolvedDep), sanitizeID(outputAddress))
+				fmt.Fprintf(os.Stderr, "Debug: Added output dependency edge: %s -> %s\n", sanitizeID(toAddress), fromID)
+			}
+		} else {
+			if opts.Verbose {
+				fmt.Fprintf(os.Stderr, "Debug: Skipped duplicate output edge: %s -> %s\n", sanitizeID(toAddress), fromID)
 			}
 		}
 	}
 
-	if opts.Verbose {
-		fmt.Fprintf(os.Stderr, "Debug: extractOutputDependencies for %s generated %d edges\n", outputAddress, len(edges))
+	expr, ok := outputConfig.Expression["references"]
+	if ok {
+		refs, ok := expr.([]interface{})
+		if ok {
+			if opts.Verbose {
+				fmt.Fprintf(os.Stderr, "Debug: Processing references in output: %s\n", outputAddress)
+			}
+			for _, ref := range refs {
+				refStr, ok := ref.(string)
+				if !ok {
+					continue
+				}
+				depAddr := b.resolveDependencyAddress(refStr, "", resourceMap, opts)
+				if depAddr != "" {
+					addEdge(depAddr)
+				}
+			}
+		}
 	}
-
 	return edges
 }

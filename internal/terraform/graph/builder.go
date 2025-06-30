@@ -44,6 +44,11 @@ func (b *Builder) BuildGraph(plan *core.TerraformPlan, opts core.GraphOptions) (
 			continue
 		}
 
+		// Skip resources from modules if disabled
+		if opts.NoModules && change.ModuleAddress != "" {
+			continue
+		}
+
 		// Extract provider from resource type
 		provider := extractProviderFromType(change.Type)
 

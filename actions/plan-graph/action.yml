@@ -11,7 +11,7 @@ inputs:
   format:
     description: Output format (graphviz, mermaid, plantuml)
     required: false
-    default: mermaid
+    default: graphviz
   output-file:
     description: Output file path (default - stdout)
     required: false
@@ -20,28 +20,24 @@ inputs:
     description: Grouping strategy (module, action, resource_type)
     required: false
     default: module
-  show-dependencies:
-    description: Include dependency relationships between resources
-    required: false
-    default: "true"
-  show-sensitivity:
-    description: Include sensitivity indicators for sensitive values
+  no-data-sources:
+    description: Exclude data source resources from the graph
     required: false
     default: "false"
-  show-outputs:
-    description: Include output values in the graph
+  no-outputs:
+    description: Exclude output values from the graph
     required: false
     default: "false"
-  show-variables:
-    description: Include variable values in the graph
+  no-variables:
+    description: Exclude variable values from the graph
     required: false
     default: "false"
-  show-locals:
-    description: Include local values in the graph
+  no-locals:
+    description: Exclude local values from the graph
     required: false
     default: "false"
-  show-data-sources:
-    description: Include data source resources in the graph
+  no-modules:
+    description: Exclude resources from modules from the graph
     required: false
     default: "false"
   compact:

@@ -160,6 +160,7 @@ type GraphOptions struct {
 	NoOutputs     bool
 	NoVariables   bool
 	NoLocals      bool
+	NoModules     bool
 	Compact       bool
 	Verbose       bool
 }

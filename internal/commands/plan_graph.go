@@ -75,6 +75,7 @@ Examples:
   terraform-ops plan-graph --no-outputs plan.json
   terraform-ops plan-graph --no-variables --no-locals plan.json
   terraform-ops plan-graph --no-data-sources --no-outputs --no-variables plan.json
+  terraform-ops plan-graph --no-modules plan.json
   terraform-ops plan-graph --output graph.dot plan.json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -90,6 +91,7 @@ Examples:
 	cmd.Flags().BoolVar(&opts.NoOutputs, "no-outputs", false, "Exclude output values from the graph")
 	cmd.Flags().BoolVar(&opts.NoVariables, "no-variables", false, "Exclude variable values from the graph")
 	cmd.Flags().BoolVar(&opts.NoLocals, "no-locals", false, "Exclude local values from the graph")
+	cmd.Flags().BoolVar(&opts.NoModules, "no-modules", false, "Exclude resources from modules from the graph")
 	cmd.Flags().BoolVarP(&opts.Compact, "compact", "c", false, "Generate a more compact graph layout")
 	cmd.Flags().BoolVarP(&opts.Verbose, "verbose", "v", false, "Enable verbose output for debugging")
 

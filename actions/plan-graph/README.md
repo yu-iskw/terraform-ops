@@ -6,8 +6,8 @@ A GitHub Action that generates visual graph representations of Terraform plan ch
 
 - **Multiple Output Formats**: Support for Graphviz DOT, Mermaid, and PlantUML formats
 - **Flexible Grouping**: Group resources by module, action, or resource type
-- **Comprehensive Visualization**: Include dependencies, outputs, variables, locals, and data sources
-- **Customizable Layout**: Compact mode and sensitivity indicators
+- **Comprehensive Visualization**: Include dependencies, outputs, variables, locals, and data sources by default
+- **Customizable Layout**: Compact mode and exclusion options
 - **Easy Integration**: Works seamlessly with existing Terraform workflows
 
 ## Usage
@@ -31,9 +31,9 @@ A GitHub Action that generates visual graph representations of Terraform plan ch
     format: "mermaid"
     output-file: "terraform-graph.md"
     group-by: "module"
-    show-outputs: "true"
-    show-variables: "true"
-    show-data-sources: "true"
+    no-outputs: "false"
+    no-variables: "false"
+    no-data-sources: "false"
     compact: "true"
     verbose: "true"
 ```
@@ -75,8 +75,6 @@ jobs:
           plan-file: "plan.json"
           format: "mermaid"
           output-file: "terraform-graph.md"
-          show-outputs: "true"
-          show-dependencies: "true"
 
       - name: Upload Graph as Artifact
         uses: actions/upload-artifact@v4
@@ -101,20 +99,19 @@ jobs:
 
 ## Inputs
 
-| Input               | Description                                         | Required | Default    |
-| ------------------- | --------------------------------------------------- | -------- | ---------- |
-| `plan-file`         | Path to the Terraform plan JSON file                | Yes      | -          |
-| `format`            | Output format (graphviz, mermaid, plantuml)         | No       | `graphviz` |
-| `output-file`       | Output file path (default: stdout)                  | No       | -          |
-| `group-by`          | Grouping strategy (module, action, resource_type)   | No       | `module`   |
-| `show-dependencies` | Include dependency relationships between resources  | No       | `true`     |
-| `show-sensitivity`  | Include sensitivity indicators for sensitive values | No       | `false`    |
-| `show-outputs`      | Include output values in the graph                  | No       | `false`    |
-| `show-variables`    | Include variable values in the graph                | No       | `false`    |
-| `show-locals`       | Include local values in the graph                   | No       | `false`    |
-| `show-data-sources` | Include data source resources in the graph          | No       | `false`    |
-| `compact`           | Generate a more compact graph layout                | No       | `false`    |
-| `verbose`           | Enable verbose output for debugging                 | No       | `false`    |
+| Input             | Description                                       | Required | Default    |
+| ----------------- | ------------------------------------------------- | -------- | ---------- |
+| `plan-file`       | Path to the Terraform plan JSON file              | Yes      | -          |
+| `format`          | Output format (graphviz, mermaid, plantuml)       | No       | `graphviz` |
+| `output-file`     | Output file path (default: stdout)                | No       | -          |
+| `group-by`        | Grouping strategy (module, action, resource_type) | No       | `module`   |
+| `no-data-sources` | Exclude data source resources from the graph      | No       | `false`    |
+| `no-outputs`      | Exclude output values from the graph              | No       | `false`    |
+| `no-variables`    | Exclude variable values from the graph            | No       | `false`    |
+| `no-locals`       | Exclude local values from the graph               | No       | `false`    |
+| `no-modules`      | Exclude resources from modules from the graph     | No       | `false`    |
+| `compact`         | Generate a more compact graph layout              | No       | `false`    |
+| `verbose`         | Enable verbose output for debugging               | No       | `false`    |
 
 ## Outputs
 
@@ -149,6 +146,19 @@ Suitable for integration with documentation systems that support PlantUML.
 - **Outputs**: Blue inverted houses (exports)
 - **Variables**: Yellow cylinders (inputs)
 - **Locals**: Pink octagons (computed values)
+
+## Default Behavior
+
+By default, the action includes all node types in the graph:
+
+- Resources (including those in modules)
+- Data sources
+- Outputs
+- Variables
+- Local values
+- Dependencies between resources
+
+Use the `no-*` flags to exclude specific node types from the visualization.
 
 ## Prerequisites
 

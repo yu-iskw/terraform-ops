@@ -547,3 +547,71 @@ func TestExtractProviderFromType(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildGraph_NoModules(t *testing.T) {
+	plan := &core.TerraformPlan{
+		FormatVersion: "1.0",
+		ResourceChanges: []core.ResourceChange{
+			// Root module resource
+			{
+				Address:       "aws_vpc.main",
+				ModuleAddress: "",
+				Mode:          "managed",
+				Type:          "aws_vpc",
+				Name:          "main",
+				Change: core.Change{
+					Actions: []string{"create"},
+					Before:  nil,
+					After:   map[string]interface{}{"cidr_block": "10.0.0.0/16"},
+				},
+			},
+			// Module resource
+			{
+				Address:       "module.network.aws_subnet.public",
+				ModuleAddress: "module.network",
+				Mode:          "managed",
+				Type:          "aws_subnet",
+				Name:          "public",
+				Change: core.Change{
+					Actions: []string{"create"},
+					Before:  nil,
+					After:   map[string]interface{}{"cidr_block": "10.0.1.0/24"},
+				},
+			},
+		},
+		Configuration: core.Configuration{
+			RootModule: core.RootModule{
+				Resources:   []core.ConfigurationResource{},
+				ModuleCalls: make(map[string]core.ModuleCall),
+				Outputs:     make(map[string]core.OutputConfig),
+				Variables:   make(map[string]core.VariableConfig),
+				Locals:      make(map[string]core.LocalConfig),
+			},
+		},
+		Variables:  make(map[string]core.Variable),
+		Applicable: true,
+		Complete:   true,
+		Errored:    false,
+	}
+
+	opts := core.GraphOptions{
+		Format:        core.FormatGraphviz,
+		NoDataSources: false,
+		NoOutputs:     false,
+		NoVariables:   false,
+		NoLocals:      false,
+		NoModules:     true,
+		Verbose:       false,
+	}
+
+	builder := NewBuilder()
+	graphData, err := builder.BuildGraph(plan, opts)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, graphData)
+
+	// Should only have the root module resource
+	assert.Len(t, graphData.Nodes, 1, "Should only have root module resource")
+	assert.Equal(t, "aws_vpc.main", graphData.Nodes[0].Address, "Should have root module resource")
+	assert.Equal(t, "", graphData.Nodes[0].Module, "Root module resource should have empty module address")
+}
