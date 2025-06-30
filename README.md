@@ -12,6 +12,7 @@ A command-line interface tool for managing Terraform operations and workflows. T
 - **Error Resilience**: Continue processing remaining workspaces even if individual ones fail
 - **Multiple Graph Formats**: Support for Graphviz, Mermaid, and PlantUML formats
 - **GitHub Action Integration**: Ready-to-use GitHub Action for CI/CD workflows
+- **Dynamic Plan Processing**: Support for both static and dynamically generated Terraform plans
 
 ## Installation
 
@@ -211,13 +212,13 @@ dot -Tpng infrastructure-graph.dot -o infrastructure-graph.png
 #### Node Types and Visual Representation
 
 - **Resources**: House shapes (with action-based colors)
-  - **CREATE** (`actions: ["create"]`): Resources to be created (Green)
+  - **CREATE** (`actions: ["create"]`): Resources to be created (Light Blue)
   - **UPDATE** (`actions: ["update"]`): Resources to be modified (Blue)
   - **DELETE** (`actions: ["delete"]`): Resources to be destroyed (Red)
   - **REPLACE** (`actions: ["delete", "create"]`): Resources to be recreated (Orange)
-  - **NO-OP** (`actions: ["no-op"]`): No changes planned (Grey)
+  - **NO-OP** (`actions: ["no-op"]`): No changes planned (Light Steel Blue)
 - **Data Sources**: Cyan diamonds
-- **Outputs**: Blue inverted houses (exports)
+- **Outputs**: Light Steel Blue inverted houses (exports)
 - **Variables**: Yellow cylinders (inputs)
 - **Locals**: Pink octagons (computed values)
 
@@ -257,6 +258,7 @@ The integration tests run against multiple Terraform versions to ensure compatib
 - Terraform 1.7.0 through 1.12.0
 - Tests both `show-terraform` and `plan-graph` commands
 - Validates against various workspace configurations
+- **Dynamic plan generation** for realistic test scenarios
 
 #### Release Process
 
@@ -312,6 +314,7 @@ The project includes comprehensive documentation to help users and contributors:
 
 - Go 1.24.4 or later
 - Make (for build automation)
+- Terraform (for integration tests)
 
 ### Setup
 
@@ -339,6 +342,8 @@ make test-integration
 - `build-all` - Build for multiple platforms (Linux, macOS, Windows)
 - `test` - Run unit tests
 - `test-integration` - Run integration tests
+- `test-show-terraform` - Run show-terraform integration tests
+- `test-integration-plan-graph` - Run plan-graph integration tests
 - `coverage` - Run tests with coverage report
 - `format` - Format code using trunk
 - `lint` - Lint code using trunk
@@ -375,6 +380,10 @@ terraform-ops/
 ├── integration_tests/    # Integration tests
 │   ├── show_terraform/   # Show terraform command tests
 │   └── plan_graph/       # Plan graph command tests
+│       ├── workspaces/   # Test Terraform configurations
+│       │   ├── web-app/  # Complex web application infrastructure
+│       │   └── simple-random/ # Simple random resource configuration
+│       └── output/       # Generated test outputs
 ├── docs/                 # Documentation
 ├── scripts/              # Build and utility scripts
 ├── Formula/              # Homebrew formula
@@ -395,6 +404,10 @@ make test
 # Run integration tests
 make test-integration
 
+# Run specific integration test suites
+make test-show-terraform
+make test-integration-plan-graph
+
 # Generate coverage report
 make coverage
 ```
@@ -412,6 +425,18 @@ Test workspaces are located in `integration_tests/` and cover various scenarios:
   - Multiple graph formats (Graphviz, Mermaid, PlantUML)
   - Different grouping strategies (module, action, resource_type)
   - Various command line options and filters
+  - **Dynamic plan generation** for realistic test scenarios
+
+### Integration Test Features
+
+The integration tests use **dynamic plan generation** instead of static plan files:
+
+1. **Terraform Configuration**: Realistic Terraform configurations in `workspaces/`
+2. **Plan Generation**: Automatic generation of Terraform plans from configurations
+3. **JSON Conversion**: Plans converted to JSON format for testing
+4. **Test Execution**: Tests use dynamically generated plan JSON files
+
+This ensures tests always use up-to-date plan structures and realistic scenarios.
 
 ## Contributing
 
