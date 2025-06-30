@@ -142,6 +142,74 @@ Generate a visual graph representation of Terraform plan changes for the given w
 terraform-ops plan-graph <PLAN_FILE> [OPTIONS]
 ```
 
+```mermaid
+---
+theme: base
+themeVariables:
+  primaryColor: '#e8f5e8'
+  primaryTextColor: '#2d5016'
+  primaryBorderColor: '#4caf50'
+  secondaryColor: '#fff3cd'
+  secondaryTextColor: '#856404'
+  secondaryBorderColor: '#ffc107'
+  tertiaryColor: '#f8d7da'
+  tertiaryTextColor: '#721c24'
+  tertiaryBorderColor: '#dc3545'
+  noteBkgColor: '#fff5ad'
+  noteTextColor: '#333'
+  lineColor: '#666'
+  textColor: '#333'
+  mainBkg: '#f8f9fa'
+---
+
+graph TB
+  subgraph root["root"]
+    random_id_test_id["random_id.test_id [replace]"]
+    random_integer_test_integer["random_integer.test_integer [replace]"]
+    random_password_test_password["random_password.test_password [replace]"]
+    random_pet_test_pet["random_pet.test_pet [delete]"]
+    random_string_test_string["random_string.test_string [replace]"]
+    random_uuid_test_uuid["random_uuid.test_uuid [replace]"]
+    output_test_string["output.test_string [no-op]"]
+    output_test_tag["output.test_tag [no-op]"]
+    output_test_uuid["output.test_uuid [no-op]"]
+    output_test_id["output.test_id [no-op]"]
+    output_test_integer["output.test_integer [no-op]"]
+    output_test_password["output.test_password [no-op]"]
+    output_test_pet["output.test_pet [no-op]"]
+    output_test_prefix["output.test_prefix [no-op]"]
+  end
+
+  random_id_test_id --> random_integer_test_integer
+  random_id_test_id --> random_password_test_password
+  random_id_test_id --> random_string_test_string
+  random_id_test_id --> random_uuid_test_uuid
+  random_id_test_id --> output_test_id
+  random_integer_test_integer --> output_test_integer
+  random_password_test_password --> output_test_password
+  random_string_test_string --> output_test_string
+  random_uuid_test_uuid --> output_test_uuid
+
+classDef replace fill:#ffe5b4,stroke:#ffb300,stroke-width:2px,color:#7c4700
+classDef delete fill:#f8d7da,stroke:#dc3545,stroke-width:2px,color:#721c24
+classDef output fill:#cce5ff,stroke:#b3d9ff,stroke-width:2px,color:#004085
+
+class random_id_test_id replace
+class random_integer_test_integer replace
+class random_password_test_password replace
+class random_pet_test_pet delete
+class random_string_test_string replace
+class random_uuid_test_uuid replace
+class output_test_string output
+class output_test_tag output
+class output_test_uuid output
+class output_test_id output
+class output_test_integer output
+class output_test_password output
+class output_test_pet output
+class output_test_prefix output
+```
+
 #### Basic Examples
 
 **Basic usage:**
