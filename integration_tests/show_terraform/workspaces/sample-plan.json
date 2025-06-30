@@ -1,0 +1,216 @@
+{
+  "format_version": "1.0",
+  "prior_state": {
+    "version": 4,
+    "terraform_version": "1.5.0",
+    "serial": 1,
+    "lineage": "sample-lineage",
+    "outputs": {},
+    "resources": []
+  },
+  "planned_values": {
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_instance.web",
+          "mode": "managed",
+          "type": "aws_instance",
+          "name": "web",
+          "index": 0,
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 1,
+          "values": {
+            "instance_type": "t2.micro",
+            "ami": "ami-12345678"
+          },
+          "sensitive_values": {},
+          "depends_on": ["aws_security_group.web"]
+        },
+        {
+          "address": "aws_security_group.web",
+          "mode": "managed",
+          "type": "aws_security_group",
+          "name": "web",
+          "index": 0,
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 1,
+          "values": {
+            "name": "web-sg",
+            "description": "Security group for web server"
+          },
+          "sensitive_values": {}
+        }
+      ],
+      "child_modules": [
+        {
+          "address": "module.database",
+          "resources": [
+            {
+              "address": "module.database.aws_instance.db",
+              "mode": "managed",
+              "type": "aws_instance",
+              "name": "db",
+              "index": 0,
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "schema_version": 1,
+              "values": {
+                "instance_type": "t2.small",
+                "ami": "ami-87654321"
+              },
+              "sensitive_values": {
+                "password": true
+              },
+              "depends_on": ["aws_instance.web"]
+            }
+          ],
+          "child_modules": []
+        }
+      ]
+    }
+  },
+  "resource_changes": [
+    {
+      "address": "aws_instance.web",
+      "module_address": "",
+      "mode": "managed",
+      "type": "aws_instance",
+      "name": "web",
+      "index": 0,
+      "deposed": null,
+      "actions": ["create"],
+      "before": null,
+      "after": {
+        "instance_type": "t2.micro",
+        "ami": "ami-12345678"
+      },
+      "after_unknown": {
+        "id": true,
+        "arn": true
+      },
+      "before_sensitive": {},
+      "after_sensitive": {},
+      "replace_paths": [],
+      "importing": null
+    },
+    {
+      "address": "aws_security_group.web",
+      "module_address": "",
+      "mode": "managed",
+      "type": "aws_security_group",
+      "name": "web",
+      "index": 0,
+      "deposed": null,
+      "actions": ["create"],
+      "before": null,
+      "after": {
+        "name": "web-sg",
+        "description": "Security group for web server"
+      },
+      "after_unknown": {
+        "id": true,
+        "arn": true
+      },
+      "before_sensitive": {},
+      "after_sensitive": {},
+      "replace_paths": [],
+      "importing": null
+    },
+    {
+      "address": "module.database.aws_instance.db",
+      "module_address": "module.database",
+      "mode": "managed",
+      "type": "aws_instance",
+      "name": "db",
+      "index": 0,
+      "deposed": null,
+      "actions": ["create"],
+      "before": null,
+      "after": {
+        "instance_type": "t2.small",
+        "ami": "ami-87654321"
+      },
+      "after_unknown": {
+        "id": true,
+        "arn": true
+      },
+      "before_sensitive": {},
+      "after_sensitive": {
+        "password": true
+      },
+      "replace_paths": [],
+      "importing": null
+    }
+  ],
+  "configuration": {
+    "provider_config": {
+      "aws": {
+        "name": "aws",
+        "full_name": "registry.terraform.io/hashicorp/aws",
+        "version_constraint": "~> 4.0"
+      }
+    },
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_instance.web",
+          "mode": "managed",
+          "type": "aws_instance",
+          "name": "web",
+          "provider_config_key": "aws",
+          "expressions": {
+            "instance_type": {
+              "constant_value": "t2.micro"
+            },
+            "ami": {
+              "constant_value": "ami-12345678"
+            }
+          },
+          "schema_version": 1,
+          "depends_on": ["aws_security_group.web"]
+        },
+        {
+          "address": "aws_security_group.web",
+          "mode": "managed",
+          "type": "aws_security_group",
+          "name": "web",
+          "provider_config_key": "aws",
+          "expressions": {
+            "name": {
+              "constant_value": "web-sg"
+            },
+            "description": {
+              "constant_value": "Security group for web server"
+            }
+          },
+          "schema_version": 1
+        }
+      ],
+      "module_calls": {
+        "database": {
+          "source": "./modules/database",
+          "module": {
+            "resources": [
+              {
+                "address": "aws_instance.db",
+                "mode": "managed",
+                "type": "aws_instance",
+                "name": "db",
+                "provider_config_key": "aws",
+                "expressions": {
+                  "instance_type": {
+                    "constant_value": "t2.small"
+                  },
+                  "ami": {
+                    "constant_value": "ami-87654321"
+                  }
+                },
+                "schema_version": 1,
+                "depends_on": ["aws_instance.web"]
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,7 @@
+# Generated files
+*.tfplan
+*.json
+debug.log
+*.dot
+*.puml
+*-graph.md

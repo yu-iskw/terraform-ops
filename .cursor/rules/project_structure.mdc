@@ -7,16 +7,60 @@ alwaysApply: true
 
 This project follows a standard Go project layout.
 
-- `cmd/`: Contains the main application entry points. Specifically, `cmd/terraform-ops/main.go` is the main CLI application.
+- `cmd/`: Contains the main application entry points. Specifically, [cmd/terraform-ops/main.go](mdc:cmd/terraform-ops/main.go) is the main CLI application.
 - `internal/`: Houses private application and library code. This includes:
-    - `internal/app/`: Core application logic and CLI command definitions.
-    - `internal/pkg/`: Internal packages, such as `config.go` for application configuration.
-- `pkg/`: Contains public library code that can be used by other applications. For example, `pkg/terraform/client.go` handles interactions with Terraform.
-- `configs/`: Stores application configuration files, such as `config.yaml`.
-- `deployments/`: Likely contains deployment-related files.
-- `docs/`: Documentation files, like `list_providers.md`.
-- `examples/`: Example usage of the project's functionalities.
-- `scripts/`: Utility scripts for building, installing, and other operations.
-- `test/`: Integration and unit tests.
-- `assets/`: Static assets or resources.
-- `tools/`: Development tools or utilities.
+    - `internal/app/`: Core application logic and CLI command definitions. See [internal/app/app.go](mdc:internal/app/app.go) and [internal/app/app_test.go](mdc:internal/app/app_test.go)
+    - `internal/commands/`: CLI command implementations:
+        - [internal/commands/show_terraform.go](mdc:internal/commands/show_terraform.go): Show Terraform command implementation
+        - [internal/commands/plan_graph.go](mdc:internal/commands/plan_graph.go): Plan graph command implementation
+    - `internal/config/`: Application configuration. See [internal/config/config.go](mdc:internal/config/config.go)
+    - `internal/core/`: Core types and error handling:
+        - [internal/core/types.go](mdc:internal/core/types.go): Core data types
+        - [internal/core/errors.go](mdc:internal/core/errors.go): Error handling utilities
+        - [internal/core/types_test.go](mdc:internal/core/types_test.go): Types unit tests
+        - [internal/core/errors_test.go](mdc:internal/core/errors_test.go): Error handling unit tests
+    - `internal/terraform/`: Terraform-specific functionality:
+        - `internal/terraform/config/`: HCL configuration parsing. See [internal/terraform/config/parser.go](mdc:internal/terraform/config/parser.go) and [internal/terraform/config/parser_test.go](mdc:internal/terraform/config/parser_test.go)
+        - `internal/terraform/plan/`: Terraform plan parsing. See [internal/terraform/plan/parser.go](mdc:internal/terraform/plan/parser.go) and [internal/terraform/plan/parser_test.go](mdc:internal/terraform/plan/parser_test.go)
+        - `internal/terraform/graph/`: Graph generation and dependency analysis:
+            - [internal/terraform/graph/builder.go](mdc:internal/terraform/graph/builder.go): Graph building logic
+            - [internal/terraform/graph/builder_test.go](mdc:internal/terraform/graph/builder_test.go): Graph builder unit tests
+            - [internal/terraform/graph/dependencies.go](mdc:internal/terraform/graph/dependencies.go): Dependency analysis
+            - [internal/terraform/graph/dependencies_test.go](mdc:internal/terraform/graph/dependencies_test.go): Dependency analysis unit tests
+            - `internal/terraform/graph/generators/`: Graph format generators:
+                - [internal/terraform/graph/generators/factory.go](mdc:internal/terraform/graph/generators/factory.go): Generator factory
+                - [internal/terraform/graph/generators/factory_test.go](mdc:internal/terraform/graph/generators/factory_test.go): Factory unit tests
+                - [internal/terraform/graph/generators/graphviz.go](mdc:internal/terraform/graph/generators/graphviz.go): Graphviz format
+                - [internal/terraform/graph/generators/graphviz_test.go](mdc:internal/terraform/graph/generators/graphviz_test.go): Graphviz unit tests
+                - [internal/terraform/graph/generators/mermaid.go](mdc:internal/terraform/graph/generators/mermaid.go): Mermaid format
+                - [internal/terraform/graph/generators/plantuml.go](mdc:internal/terraform/graph/generators/plantuml.go): PlantUML format
+- `pkg/`: Contains public library code that can be used by other applications:
+    - [pkg/terraform/client.go](mdc:pkg/terraform/client.go): Terraform client interactions
+- `configs/`: Stores application configuration files (currently empty)
+- `integration_tests/`: Integration and end-to-end tests, organized by command:
+    - `integration_tests/show_terraform/`: Integration tests for show-terraform command
+    - `integration_tests/plan_graph/`: Integration tests for plan-graph command
+- `docs/`: Documentation files, including:
+    - [docs/plan_graph.md](mdc:docs/plan_graph.md): Plan graph command documentation
+    - [docs/show_terraform.md](mdc:docs/show_terraform.md): Show terraform command documentation
+    - [docs/project_structure.md](mdc:docs/project_structure.md): Project structure overview
+    - [docs/homebrew.md](mdc:docs/homebrew.md): Homebrew installation guide
+- `examples/`: Example usage of the project's functionalities:
+    - [examples/basic-usage.go](mdc:examples/basic-usage.go): Basic usage examples
+- `scripts/`: Utility scripts for building, installing, and other operations:
+    - [scripts/update-homebrew-formula.sh](mdc:scripts/update-homebrew-formula.sh): Homebrew formula update script
+- `actions/`: GitHub Actions workflows:
+    - `actions/plan-graph/`: Plan graph GitHub Action
+- `Formula/`: Homebrew formula:
+    - [Formula/terraform-ops.rb](mdc:Formula/terraform-ops.rb): Homebrew installation formula
+- `assets/`: Static assets or resources (currently contains .gitkeep)
+- `tools/`: Development tools or utilities (currently contains .gitkeep)
+- `deployments/`: Deployment-related files (currently contains .gitkeep)
+- `.github/`: GitHub-specific configuration:
+    - `.github/workflows/`: GitHub Actions workflows
+    - [.github/dependabot.yml](mdc:.github/dependabot.yml): Dependabot configuration
+    - [.github/CODEOWNER](mdc:.github/CODEOWNER): Code ownership rules
+- `.cursor/`: Cursor IDE configuration:
+    - `.cursor/rules/`: Cursor rules for AI assistance
+- `.trunk/`: Trunk configuration for code quality tools
+- `build/`: Build artifacts and outputs
