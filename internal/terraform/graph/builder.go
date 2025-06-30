@@ -52,18 +52,10 @@ func (b *Builder) BuildGraph(plan *core.TerraformPlan, opts core.GraphOptions) (
 		// Extract provider from resource type
 		provider := extractProviderFromType(change.Type)
 
-		// Determine the node type based on the mode
-		var nodeType string
-		if change.Mode == "data" {
-			nodeType = string(core.NodeTypeData)
-		} else {
-			nodeType = string(core.NodeTypeResource)
-		}
-
 		node := core.GraphNode{
 			ID:        sanitizeID(change.Address),
 			Address:   change.Address,
-			Type:      nodeType, // Use the NodeType constant instead of the resource type
+			Type:      change.Type, // Use the actual resource type (e.g., "aws_instance") instead of the NodeType constant
 			Name:      change.Name,
 			Module:    change.ModuleAddress,
 			Provider:  provider,

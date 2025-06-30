@@ -16,7 +16,6 @@ package generators
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/yu/terraform-ops/internal/core"
@@ -55,7 +54,7 @@ func (g *GraphvizGenerator) Generate(graphData *core.GraphData, opts core.GraphO
 		for _, node := range nodes {
 			actionType := getActionType(node.Actions)
 
-			// Use node type color and shape, fall back to action color for resources
+			// Use action color for resources, node type color for others
 			var color string
 			if isResourceType(node.Type) {
 				color = getActionColor(actionType)
@@ -83,65 +82,6 @@ func (g *GraphvizGenerator) Generate(graphData *core.GraphData, opts core.GraphO
 }
 
 // Helper functions
-func sanitizeID(id string) string {
-	// Replace special characters that might cause issues in graph formats
-	replacements := map[string]string{
-		".": "_",
-		"-": "_",
-		"[": "_",
-		"]": "_",
-		"(": "_",
-		")": "_",
-		" ": "_",
-	}
-
-	result := id
-	for old, new := range replacements {
-		result = strings.ReplaceAll(result, old, new)
-	}
-	return result
-}
-
-func groupNodesByModule(nodes []core.GraphNode) map[string][]core.GraphNode {
-	groups := make(map[string][]core.GraphNode)
-	for _, node := range nodes {
-		module := node.Module
-		if module == "" {
-			module = "root"
-		}
-		groups[module] = append(groups[module], node)
-	}
-	return groups
-}
-
-func getActionType(actions []string) core.ActionType {
-	if len(actions) == 0 {
-		return core.ActionNoOp
-	}
-
-	// Sort actions for consistent comparison
-	sortedActions := make([]string, len(actions))
-	copy(sortedActions, actions)
-	sort.Strings(sortedActions)
-
-	actionStr := strings.Join(sortedActions, ",")
-
-	switch actionStr {
-	case "create":
-		return core.ActionCreate
-	case "update":
-		return core.ActionUpdate
-	case "delete":
-		return core.ActionDelete
-	case "create,delete", "delete,create":
-		return core.ActionReplace
-	case "no-op":
-		return core.ActionNoOp
-	default:
-		return core.ActionNoOp
-	}
-}
-
 func getActionColor(actionType core.ActionType) string {
 	switch actionType {
 	case core.ActionCreate:
@@ -174,39 +114,4 @@ func getNodeTypeColor(nodeType string) string {
 	default:
 		return "white"
 	}
-}
-
-func getNodeShape(nodeType string, resourceType string) string {
-	switch nodeType {
-	case string(core.NodeTypeResource):
-		return "house" // House shape for infrastructure resources
-	case string(core.NodeTypeData):
-		return "diamond" // Diamond for data sources (keep existing)
-	case string(core.NodeTypeOutput):
-		return "invhouse" // Inverted house for outputs/exports
-	case string(core.NodeTypeVariable):
-		return "cylinder" // Cylinder for input variables
-	case string(core.NodeTypeLocal):
-		return "octagon" // Octagon for computed locals
-	default:
-		// Check if this looks like a resource type (has underscore, like "aws_instance")
-		if strings.Contains(nodeType, "_") {
-			return "house" // House shape for infrastructure resources
-		}
-		return "box" // Default fallback
-	}
-}
-
-func isResourceType(s string) bool {
-	// Terraform resource types follow the pattern: provider_resource_type
-	// Since we're parsing from a valid Terraform plan, any resource type
-	// that follows this pattern should be considered valid
-	parts := strings.Split(s, "_")
-	if len(parts) < 2 {
-		return false
-	}
-
-	// Check if it looks like a valid resource type pattern
-	// This is a more flexible approach that accepts any provider
-	return true
 }

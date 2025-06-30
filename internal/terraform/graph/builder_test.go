@@ -129,7 +129,7 @@ func TestBuildGraph_SimpleResources(t *testing.T) {
 	// Check first node
 	assert.Equal(t, "aws_instance_web", graphData.Nodes[0].ID)
 	assert.Equal(t, "aws_instance.web", graphData.Nodes[0].Address)
-	assert.Equal(t, string(core.NodeTypeResource), graphData.Nodes[0].Type)
+	assert.Equal(t, "aws_instance", graphData.Nodes[0].Type)
 	assert.Equal(t, "web", graphData.Nodes[0].Name)
 	assert.Equal(t, "aws", graphData.Nodes[0].Provider)
 }
@@ -185,7 +185,7 @@ func TestBuildGraph_WithDataSources(t *testing.T) {
 
 	assert.Equal(t, "data_aws_ami_ubuntu", graphData.Nodes[0].ID)
 	assert.Equal(t, "data.aws_ami.ubuntu", graphData.Nodes[0].Address)
-	assert.Equal(t, string(core.NodeTypeData), graphData.Nodes[0].Type)
+	assert.Equal(t, "aws_ami", graphData.Nodes[0].Type)
 	assert.Equal(t, "ubuntu", graphData.Nodes[0].Name)
 	assert.Equal(t, "", graphData.Nodes[0].Module)
 	assert.Equal(t, "aws", graphData.Nodes[0].Provider)

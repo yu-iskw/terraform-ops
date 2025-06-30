@@ -114,9 +114,9 @@ func (g *MermaidGenerator) Generate(graphData *core.GraphData, opts core.GraphOp
 			case "update":
 				builder.WriteString("classDef update fill:#fff3cd,stroke:#ffeaa7,stroke-width:2px,color:#856404\n")
 			case "delete":
-				builder.WriteString("classDef delete fill:#f8d7da,stroke:#f5c6cb,stroke-width:2px,color:#721c24\n")
+				builder.WriteString("classDef delete fill:#f8d7da,stroke:#dc3545,stroke-width:2px,color:#721c24\n")
 			case "replace":
-				builder.WriteString("classDef replace fill:#fde2e2,stroke:#fecaca,stroke-width:2px,color:#991b1b\n")
+				builder.WriteString("classDef replace fill:#ffe5b4,stroke:#ffb300,stroke-width:2px,color:#7c4700\n")
 			case "noop":
 				builder.WriteString("classDef noop fill:#e9ecef,stroke:#dee2e6,stroke-width:2px,color:#495057\n")
 			case "default":

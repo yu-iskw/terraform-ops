@@ -20,10 +20,6 @@ output "test_integer" {
   value = random_integer.test_integer.result
 }
 
-output "test_pet" {
-  value = random_pet.test_pet.id
-}
-
 output "test_tag" {
   value = local.test_tag
 }

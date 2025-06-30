@@ -38,9 +38,3 @@ resource "random_integer" "test_integer" {
     test_id = random_id.test_id.hex
   }
 }
-
-resource "random_pet" "test_pet" {
-  keepers = {
-    test_id = random_id.test_id.hex
-  }
-}
