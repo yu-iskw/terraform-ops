@@ -1,35 +1,29 @@
 # Terraform Plan Summary
 
-**Plan Status:** ❌ Not Applicable  
-**Format Version:** 1.2  
-**Complete:** true
+**Plan Status:** ❌ Not Applicable
+**Format Version:** 1.2
+**Complete:** false
 
 ## 📊 Statistics
 
-**Total Changes:** 8
+**Total Changes:** 7
 
 ### By Action
 
-- ❌ **delete:** 6
 - ➕ **create:** 7
 
 ### By Provider
 
-- 🏢 **random:** 8
+- 🏢 **random:** 7
 
 ### By Module
 
-- 📦 **Root Module:** 6
+- 📦 **Root Module:** 5
 - 📦 **module.myrandom:** 2
 
 ## 🔄 Resource Changes
 
-### ➕ Create (2)
-
-- **module.myrandom.module.myrandom.random_integer.test_integer**
-- **module.myrandom.module.myrandom.random_string.test_string**
-
-### 🔄 Replace (5)
+### ➕ Create (7)
 
 - **random_id.test_id**
 - **random_integer.test_integer**
@@ -37,19 +31,16 @@
   - 🔒 Contains sensitive values
 - **random_string.test_string**
 - **random_uuid.test_uuid**
-
-### ❌ Delete (1)
-
-- **random_pet.test_pet**
+- **module.myrandom.random_integer.test_integer**
+- **module.myrandom.random_string.test_string**
 
 ## 📤 Output Changes
 
-- **test_integer**
-- **test_prefix**
-- **test_uuid**
 - **test_id**
+- **test_integer**
 - **test_password**
-- **test_pet**
+- **test_prefix**
 - **test_string**
 - **test_tag**
+- **test_uuid**
 - **myrandom**

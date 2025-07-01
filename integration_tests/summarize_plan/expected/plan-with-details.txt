@@ -7,6 +7,54 @@ actions are indicated with the following symbols:
 
 Terraform will perform the following actions:
 
+  # random_id.test_id will be created
+  + resource "random_id" "test_id" {
+      + byte_length = 4
+      + keepers = {}
+    }
+
+  # random_integer.test_integer will be created
+  + resource "random_integer" "test_integer" {
+      + keepers = {}
+      + max = 100
+      + min = 1
+    }
+
+  # random_password.test_password will be created
+  + resource "random_password" "test_password" {
+      + keepers = {}
+      + length = 12
+      + lower = true
+      + min_lower = 0
+      + min_numeric = 0
+      + min_special = 0
+      + min_upper = 0
+      + number = true
+      + numeric = true
+      + special = true
+      + upper = true
+    }
+
+  # random_string.test_string will be created
+  + resource "random_string" "test_string" {
+      + keepers = {}
+      + length = 16
+      + lower = true
+      + min_lower = 0
+      + min_numeric = 0
+      + min_special = 0
+      + min_upper = 0
+      + number = true
+      + numeric = true
+      + special = false
+      + upper = true
+    }
+
+  # random_uuid.test_uuid will be created
+  + resource "random_uuid" "test_uuid" {
+      + keepers = {}
+    }
+
   # module.myrandom.random_integer.test_integer will be created
   + resource "random_integer" "test_integer" {
       + max = 100
@@ -27,80 +75,15 @@ Terraform will perform the following actions:
       + upper = false
     }
 
-  # random_id.test_id must be replaced
--/+ resource "random_id" "test_id" {
-      - b64_std = "8ItrMQ=="
-      - b64_url = "8ItrMQ"
-      - dec = "4035668785"
-      - hex = "f08b6b31"
-      - id = "8ItrMQ"
-      ~ keepers = {
-          timestamp = "2025-06-30T01:27:20Z"
-      }
-        -> {}
-    }
-
-  # random_integer.test_integer must be replaced
--/+ resource "random_integer" "test_integer" {
-      - id = "90"
-      ~ keepers = {
-          test_id = "f08b6b31"
-      }
-        -> {}
-      - result = 90
-    }
-
-  # random_password.test_password must be replaced
--/+ resource "random_password" "test_password" {
-      - bcrypt_hash = "$2a$10$r2yWgWh/9VzFNTZHxQeviOyGTC6qJPVqPMyX6CTDHovcdNHI3SSYW"
-      - id = "none"
-      ~ keepers = {
-          test_id = "f08b6b31"
-      }
-        -> {}
-      - result = "WH6ujLz$QPg8"
-    }
-
-  # random_pet.test_pet will be destroyed
-  - resource "random_pet" "test_pet" {
-      - id = "possible-yak"
-      - keepers = {
-          test_id = "f08b6b31"
-      }
-      - length = 2
-      - separator = "-"
-    }
-
-  # random_string.test_string must be replaced
--/+ resource "random_string" "test_string" {
-      - id = "mCHuj35ctPcWp3a5"
-      ~ keepers = {
-          test_id = "f08b6b31"
-      }
-        -> {}
-      - result = "mCHuj35ctPcWp3a5"
-    }
-
-  # random_uuid.test_uuid must be replaced
--/+ resource "random_uuid" "test_uuid" {
-      - id = "83430080-b870-ac13-871b-3c7afc8a9bea"
-      ~ keepers = {
-          test_id = "f08b6b31"
-      }
-        -> {}
-      - result = "83430080-b870-ac13-871b-3c7afc8a9bea"
-    }
-
-Plan: 7 to add, 0 to change, 6 to destroy.
+Plan: 7 to add, 0 to change, 0 to destroy.
 
 Changes to Outputs:
   ~ test_id = null -> null
   ~ test_integer = null -> null
   ~ test_password = null -> null
-  ~ test_pet = null -> null
-  ~ test_tag = null -> null
   ~ test_prefix = null -> null
   ~ test_string = null -> null
+  ~ test_tag = null -> null
   ~ test_uuid = null -> null
   ~ myrandom = null -> null
 
