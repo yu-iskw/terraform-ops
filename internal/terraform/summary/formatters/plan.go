@@ -127,8 +127,13 @@ func (f *PlanFormatter) writeResourceChange(builder *strings.Builder, resource c
 	}
 
 	// Write resource details if showing details
-	if opts.ShowDetails && len(resource.KeyChanges) > 0 {
-		f.writeResourceDetails(builder, resource, opts)
+	// For plan format, always show details to match terraform plan output
+	if opts.ShowDetails || opts.Format == core.FormatPlan {
+		if len(resource.KeyChanges) > 0 {
+			f.writeResourceDetails(builder, resource, opts)
+		} else if resource.Sensitive {
+			builder.WriteString("      # (sensitive value)\n")
+		}
 	} else {
 		// Write minimal info for non-detailed view
 		if resource.Sensitive {
