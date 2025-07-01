@@ -248,7 +248,7 @@ terraform-ops summarize-plan --format markdown plan.json > plan-summary.md
 terraform-ops summarize-plan --format json plan.json > plan-summary.json
 ```
 
-#### Options
+#### Command Options
 
 - `--format, -f <FORMAT>`: Output format (default: "text")
   - Supported formats: `text`, `json`, `markdown`, `table`, `plan`
@@ -407,7 +407,7 @@ class output_test_pet output
 class output_test_prefix output
 ```
 
-#### Basic Examples
+#### Command Examples
 
 **Basic usage:**
 
@@ -445,7 +445,7 @@ terraform-ops plan-graph plan.json > infrastructure-graph.dot
 dot -Tpng infrastructure-graph.dot -o infrastructure-graph.png
 ```
 
-#### Options
+#### Graph Options
 
 - `--format <FORMAT>`: Output format (default: "graphviz")
   - Supported formats: `graphviz`, `mermaid`, `plantuml`
