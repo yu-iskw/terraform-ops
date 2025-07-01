@@ -1,0 +1,345 @@
+{
+  "plan_info": {
+    "format_version": "1.2",
+    "applicable": false,
+    "complete": true,
+    "errored": false
+  },
+  "statistics": {
+    "total_changes": 8,
+    "action_breakdown": {
+      "create": 7,
+      "delete": 6
+    },
+    "provider_breakdown": {
+      "random": 8
+    },
+    "resource_breakdown": {
+      "random_id": 1,
+      "random_integer": 2,
+      "random_password": 1,
+      "random_pet": 1,
+      "random_string": 2,
+      "random_uuid": 1
+    },
+    "module_breakdown": {
+      "module.myrandom": 2,
+      "root": 6
+    }
+  },
+  "changes": {
+    "create": [
+      {
+        "address": "module.myrandom.random_integer.test_integer",
+        "module_address": "module.myrandom",
+        "type": "random_integer",
+        "name": "test_integer",
+        "provider": "random",
+        "actions": ["create"],
+        "sensitive": false,
+        "key_changes": {
+          "keepers": {
+            "from": null,
+            "to": null
+          },
+          "max": {
+            "from": null,
+            "to": 100
+          },
+          "min": {
+            "from": null,
+            "to": 1
+          },
+          "seed": {
+            "from": null,
+            "to": null
+          }
+        }
+      },
+      {
+        "address": "module.myrandom.random_string.test_string",
+        "module_address": "module.myrandom",
+        "type": "random_string",
+        "name": "test_string",
+        "provider": "random",
+        "actions": ["create"],
+        "sensitive": false,
+        "key_changes": {
+          "keepers": {
+            "from": null,
+            "to": null
+          },
+          "length": {
+            "from": null,
+            "to": 10
+          },
+          "lower": {
+            "from": null,
+            "to": true
+          },
+          "min_lower": {
+            "from": null,
+            "to": 0
+          },
+          "min_numeric": {
+            "from": null,
+            "to": 0
+          },
+          "min_special": {
+            "from": null,
+            "to": 0
+          },
+          "min_upper": {
+            "from": null,
+            "to": 0
+          },
+          "number": {
+            "from": null,
+            "to": true
+          },
+          "numeric": {
+            "from": null,
+            "to": true
+          },
+          "override_special": {
+            "from": null,
+            "to": null
+          },
+          "special": {
+            "from": null,
+            "to": false
+          },
+          "upper": {
+            "from": null,
+            "to": false
+          }
+        }
+      }
+    ],
+    "delete": [
+      {
+        "address": "random_pet.test_pet",
+        "module_address": "",
+        "type": "random_pet",
+        "name": "test_pet",
+        "provider": "random",
+        "actions": ["delete"],
+        "sensitive": false,
+        "key_changes": {
+          "id": {
+            "from": "possible-yak",
+            "to": null
+          },
+          "keepers": {
+            "from": {
+              "test_id": "f08b6b31"
+            },
+            "to": null
+          },
+          "length": {
+            "from": 2,
+            "to": null
+          },
+          "prefix": {
+            "from": null,
+            "to": null
+          },
+          "separator": {
+            "from": "-",
+            "to": null
+          }
+        }
+      }
+    ],
+    "replace": [
+      {
+        "address": "random_id.test_id",
+        "module_address": "",
+        "type": "random_id",
+        "name": "test_id",
+        "provider": "random",
+        "actions": ["delete", "create"],
+        "sensitive": false,
+        "key_changes": {
+          "b64_std": {
+            "from": "8ItrMQ==",
+            "to": null
+          },
+          "b64_url": {
+            "from": "8ItrMQ",
+            "to": null
+          },
+          "dec": {
+            "from": "4035668785",
+            "to": null
+          },
+          "hex": {
+            "from": "f08b6b31",
+            "to": null
+          },
+          "id": {
+            "from": "8ItrMQ",
+            "to": null
+          },
+          "keepers": {
+            "from": {
+              "timestamp": "2025-06-30T01:27:20Z"
+            },
+            "to": {}
+          }
+        }
+      },
+      {
+        "address": "random_integer.test_integer",
+        "module_address": "",
+        "type": "random_integer",
+        "name": "test_integer",
+        "provider": "random",
+        "actions": ["delete", "create"],
+        "sensitive": false,
+        "key_changes": {
+          "id": {
+            "from": "90",
+            "to": null
+          },
+          "keepers": {
+            "from": {
+              "test_id": "f08b6b31"
+            },
+            "to": {}
+          },
+          "result": {
+            "from": 90,
+            "to": null
+          }
+        }
+      },
+      {
+        "address": "random_password.test_password",
+        "module_address": "",
+        "type": "random_password",
+        "name": "test_password",
+        "provider": "random",
+        "actions": ["delete", "create"],
+        "sensitive": true,
+        "key_changes": {
+          "bcrypt_hash": {
+            "from": "$2a$10$r2yWgWh/9VzFNTZHxQeviOyGTC6qJPVqPMyX6CTDHovcdNHI3SSYW",
+            "to": null
+          },
+          "id": {
+            "from": "none",
+            "to": null
+          },
+          "keepers": {
+            "from": {
+              "test_id": "f08b6b31"
+            },
+            "to": {}
+          },
+          "result": {
+            "from": "WH6ujLz$QPg8",
+            "to": null
+          }
+        }
+      },
+      {
+        "address": "random_string.test_string",
+        "module_address": "",
+        "type": "random_string",
+        "name": "test_string",
+        "provider": "random",
+        "actions": ["delete", "create"],
+        "sensitive": false,
+        "key_changes": {
+          "id": {
+            "from": "mCHuj35ctPcWp3a5",
+            "to": null
+          },
+          "keepers": {
+            "from": {
+              "test_id": "f08b6b31"
+            },
+            "to": {}
+          },
+          "result": {
+            "from": "mCHuj35ctPcWp3a5",
+            "to": null
+          }
+        }
+      },
+      {
+        "address": "random_uuid.test_uuid",
+        "module_address": "",
+        "type": "random_uuid",
+        "name": "test_uuid",
+        "provider": "random",
+        "actions": ["delete", "create"],
+        "sensitive": false,
+        "key_changes": {
+          "id": {
+            "from": "83430080-b870-ac13-871b-3c7afc8a9bea",
+            "to": null
+          },
+          "keepers": {
+            "from": {
+              "test_id": "f08b6b31"
+            },
+            "to": {}
+          },
+          "result": {
+            "from": "83430080-b870-ac13-871b-3c7afc8a9bea",
+            "to": null
+          }
+        }
+      }
+    ]
+  },
+  "outputs": [
+    {
+      "name": "test_integer",
+      "actions": null,
+      "sensitive": false
+    },
+    {
+      "name": "test_password",
+      "actions": null,
+      "sensitive": false
+    },
+    {
+      "name": "test_prefix",
+      "actions": null,
+      "sensitive": false
+    },
+    {
+      "name": "test_string",
+      "actions": null,
+      "sensitive": false
+    },
+    {
+      "name": "test_tag",
+      "actions": null,
+      "sensitive": false
+    },
+    {
+      "name": "myrandom",
+      "actions": null,
+      "sensitive": false
+    },
+    {
+      "name": "test_id",
+      "actions": null,
+      "sensitive": false
+    },
+    {
+      "name": "test_pet",
+      "actions": null,
+      "sensitive": false
+    },
+    {
+      "name": "test_uuid",
+      "actions": null,
+      "sensitive": false
+    }
+  ]
+}

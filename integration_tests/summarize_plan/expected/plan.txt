@@ -1,0 +1,59 @@
+Terraform used the selected providers to generate the following execution plan. Resource
+actions are indicated with the following symbols:
+  + create
+  ~ update in-place
+  - destroy
+-/+ destroy and then create replacement
+
+Terraform will perform the following actions:
+
+  # module.myrandom.random_integer.test_integer will be created
+  + resource "random_integer" "test_integer" {
+    }
+
+  # module.myrandom.random_string.test_string will be created
+  + resource "random_string" "test_string" {
+    }
+
+  # random_id.test_id must be replaced
+-/+ resource "random_id" "test_id" {
+    }
+
+  # random_integer.test_integer must be replaced
+-/+ resource "random_integer" "test_integer" {
+    }
+
+  # random_password.test_password must be replaced
+-/+ resource "random_password" "test_password" {
+      # (sensitive value)
+    }
+
+  # random_pet.test_pet will be destroyed
+  - resource "random_pet" "test_pet" {
+    }
+
+  # random_string.test_string must be replaced
+-/+ resource "random_string" "test_string" {
+    }
+
+  # random_uuid.test_uuid must be replaced
+-/+ resource "random_uuid" "test_uuid" {
+    }
+
+Plan: 7 to add, 0 to change, 6 to destroy.
+
+Changes to Outputs:
+  ~ test_prefix = null -> null
+  ~ test_string = null -> null
+  ~ test_uuid = null -> null
+  ~ myrandom = null -> null
+  ~ test_id = null -> null
+  ~ test_integer = null -> null
+  ~ test_tag = null -> null
+  ~ test_password = null -> null
+  ~ test_pet = null -> null
+
+──────────────────────────────────────────────────────────────────────────────────────────────
+
+Note: You didn't use the -out option to save this plan, so Terraform can't guarantee to take
+exactly these actions if you run "terraform apply" now.

@@ -1,0 +1,61 @@
+## Statistics
+
+### Action Breakdown
+
+| Action | Count |
+|--------|-------|
+| delete | 6 |
+| create | 7 |
+
+### Provider Breakdown
+
+| Provider | Count |
+|----------|-------|
+| random | 8 |
+
+### Module Breakdown
+
+| Module | Count |
+|--------|-------|
+| Root Module | 6 |
+| module.myrandom | 2 |
+
+## Resource Changes
+
+### Create (2)
+
+| Address | Type | Provider | Module | Sensitive |
+|---------|------|----------|--------|-----------|
+| module.myrandom.module.myrandom.random_integer.test_integer | random_integer | random | module.myrandom | No |
+| module.myrandom.module.myrandom.random_string.test_string | random_string | random | module.myrandom | No |
+
+### Replace (5)
+
+| Address | Type | Provider | Module | Sensitive |
+|---------|------|----------|--------|-----------|
+| random_id.test_id | random_id | random | root | No |
+| random_integer.test_integer | random_integer | random | root | No |
+| random_password.test_password | random_password | random | root | Yes |
+| random_string.test_string | random_string | random | root | No |
+| random_uuid.test_uuid | random_uuid | random | root | No |
+
+### Delete (1)
+
+| Address | Type | Provider | Module | Sensitive |
+|---------|------|----------|--------|-----------|
+| random_pet.test_pet | random_pet | random | root | No |
+
+## Output Changes
+
+| Name | Actions | Sensitive | Value |
+|------|---------|-----------|-------|
+| myrandom |  | No | N/A |
+| test_id |  | No | N/A |
+| test_integer |  | No | N/A |
+| test_password |  | No | N/A |
+| test_pet |  | No | N/A |
+| test_tag |  | No | N/A |
+| test_uuid |  | No | N/A |
+| test_prefix |  | No | N/A |
+| test_string |  | No | N/A |
+

@@ -38,6 +38,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "verbose output")
 	rootCmd.AddCommand(commands.DefaultShowTerraformCommand().Command())
 	rootCmd.AddCommand(commands.DefaultPlanGraphCommand().Command())
+	rootCmd.AddCommand(commands.DefaultSummarizePlanCommand().Command())
 }
 
 // Run executes the root command
