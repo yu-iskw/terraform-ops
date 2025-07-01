@@ -34,6 +34,100 @@ type GraphGenerator interface {
 	Generate(graphData *GraphData, opts GraphOptions) (string, error)
 }
 
+// PlanSummarizer defines the interface for summarizing Terraform plans
+type PlanSummarizer interface {
+	SummarizePlan(plan *TerraformPlan, opts SummaryOptions) (*PlanSummary, error)
+}
+
+// SummaryOptions holds the options for plan summarization
+type SummaryOptions struct {
+	Format      SummaryFormat
+	Output      string
+	GroupBy     SummaryGrouping
+	NoSensitive bool
+	Compact     bool
+	Verbose     bool
+	ShowDetails bool
+	Color       ColorMode
+}
+
+// PlanSummary represents a summarized view of a Terraform plan
+type PlanSummary struct {
+	PlanInfo   PlanInfo        `json:"plan_info"`
+	Statistics Statistics      `json:"statistics"`
+	Changes    Changes         `json:"changes"`
+	Outputs    []OutputSummary `json:"outputs,omitempty"`
+}
+
+// PlanInfo contains basic information about the plan
+type PlanInfo struct {
+	FormatVersion string `json:"format_version"`
+	Applicable    bool   `json:"applicable"`
+	Complete      bool   `json:"complete"`
+	Errored       bool   `json:"errored"`
+}
+
+// Statistics contains counts and breakdowns
+type Statistics struct {
+	TotalChanges      int            `json:"total_changes"`
+	ActionBreakdown   map[string]int `json:"action_breakdown"`
+	ProviderBreakdown map[string]int `json:"provider_breakdown"`
+	ResourceBreakdown map[string]int `json:"resource_breakdown"`
+	ModuleBreakdown   map[string]int `json:"module_breakdown"`
+}
+
+// Changes represents grouped resource changes
+type Changes struct {
+	Create  []ResourceSummary `json:"create,omitempty"`
+	Update  []ResourceSummary `json:"update,omitempty"`
+	Delete  []ResourceSummary `json:"delete,omitempty"`
+	Replace []ResourceSummary `json:"replace,omitempty"`
+	NoOp    []ResourceSummary `json:"no_op,omitempty"`
+}
+
+// ResourceSummary represents a summarized resource change
+type ResourceSummary struct {
+	Address       string                 `json:"address"`
+	ModuleAddress string                 `json:"module_address"`
+	Type          string                 `json:"type"`
+	Name          string                 `json:"name"`
+	Provider      string                 `json:"provider"`
+	Actions       []string               `json:"actions"`
+	Sensitive     bool                   `json:"sensitive"`
+	KeyChanges    map[string]interface{} `json:"key_changes,omitempty"`
+}
+
+// OutputSummary represents a summarized output change
+type OutputSummary struct {
+	Name      string      `json:"name"`
+	Actions   []string    `json:"actions"`
+	Sensitive bool        `json:"sensitive"`
+	Value     interface{} `json:"value,omitempty"`
+}
+
+// SummaryFormat represents the output format for the summary
+type SummaryFormat string
+
+const (
+	FormatText     SummaryFormat = "text"
+	FormatJSON     SummaryFormat = "json"
+	FormatMarkdown SummaryFormat = "markdown"
+	FormatTable    SummaryFormat = "table"
+	FormatPlan     SummaryFormat = "plan"
+)
+
+// SummaryGrouping represents the strategy for grouping resources in the summary
+type SummaryGrouping = GroupingStrategy
+
+// ColorMode represents the color output mode
+type ColorMode string
+
+const (
+	ColorAuto   ColorMode = "auto"
+	ColorAlways ColorMode = "always"
+	ColorNever  ColorMode = "never"
+)
+
 // TerraformPlan represents a parsed Terraform plan
 type TerraformPlan struct {
 	FormatVersion   string                  `json:"format_version"`
@@ -205,6 +299,7 @@ const (
 	GroupByModule       GroupingStrategy = "module"
 	GroupByAction       GroupingStrategy = "action"
 	GroupByResourceType GroupingStrategy = "resource_type"
+	GroupByProvider     GroupingStrategy = "provider"
 )
 
 // ActionType represents the type of action to be performed on a resource

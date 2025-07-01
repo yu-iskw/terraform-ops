@@ -1,0 +1,93 @@
+Terraform used the selected providers to generate the following execution plan. Resource
+actions are indicated with the following symbols:
+  + create
+  ~ update in-place
+  - destroy
+-/+ destroy and then create replacement
+
+Terraform will perform the following actions:
+
+  # random_id.test_id will be created
+  + resource "random_id" "test_id" {
+      + byte_length = 4
+      + keepers = {}
+    }
+
+  # random_integer.test_integer will be created
+  + resource "random_integer" "test_integer" {
+      + keepers = {}
+      + max = 100
+      + min = 1
+    }
+
+  # random_password.test_password will be created
+  + resource "random_password" "test_password" {
+      + keepers = {}
+      + length = 12
+      + lower = true
+      + min_lower = 0
+      + min_numeric = 0
+      + min_special = 0
+      + min_upper = 0
+      + number = true
+      + numeric = true
+      + special = true
+      + upper = true
+    }
+
+  # random_string.test_string will be created
+  + resource "random_string" "test_string" {
+      + keepers = {}
+      + length = 16
+      + lower = true
+      + min_lower = 0
+      + min_numeric = 0
+      + min_special = 0
+      + min_upper = 0
+      + number = true
+      + numeric = true
+      + special = false
+      + upper = true
+    }
+
+  # random_uuid.test_uuid will be created
+  + resource "random_uuid" "test_uuid" {
+      + keepers = {}
+    }
+
+  # module.myrandom.random_integer.test_integer will be created
+  + resource "random_integer" "test_integer" {
+      + max = 100
+      + min = 1
+    }
+
+  # module.myrandom.random_string.test_string will be created
+  + resource "random_string" "test_string" {
+      + length = 10
+      + lower = true
+      + min_lower = 0
+      + min_numeric = 0
+      + min_special = 0
+      + min_upper = 0
+      + number = true
+      + numeric = true
+      + special = false
+      + upper = false
+    }
+
+Plan: 7 to add, 0 to change, 0 to destroy.
+
+Changes to Outputs:
+  ~ test_id = null -> null
+  ~ test_integer = null -> null
+  ~ test_password = null -> null
+  ~ test_prefix = null -> null
+  ~ test_string = null -> null
+  ~ test_tag = null -> null
+  ~ test_uuid = null -> null
+  ~ myrandom = null -> null
+
+──────────────────────────────────────────────────────────────────────────────────────────────
+
+Note: You didn't use the -out option to save this plan, so Terraform can't guarantee to take
+exactly these actions if you run "terraform apply" now.
