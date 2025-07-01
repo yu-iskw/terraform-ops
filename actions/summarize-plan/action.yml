@@ -1,0 +1,50 @@
+name: Terraform Plan Summarizer
+description: Generate a human-readable summary of Terraform plan changes
+author: yu-iskw
+branding:
+  icon: file-text
+  color: green
+inputs:
+  plan-file:
+    description: Path to the Terraform plan JSON file
+    required: true
+  format:
+    description: Output format (text, json, markdown, table, plan)
+    required: false
+    default: text
+  output-file:
+    description: Output file path (default - stdout)
+    required: false
+    default: ""
+  group-by:
+    description: Grouping strategy (action, module, provider, resource_type)
+    required: false
+    default: action
+  no-sensitive:
+    description: Hide sensitive value indicators
+    required: false
+    default: "false"
+  compact:
+    description: Compact output format
+    required: false
+    default: "false"
+  verbose:
+    description: Enable verbose output for debugging
+    required: false
+    default: "false"
+  show-details:
+    description: Show detailed change information
+    required: false
+    default: "false"
+  color:
+    description: Color output mode (auto, always, never)
+    required: false
+    default: auto
+outputs:
+  summary-content:
+    description: The generated summary content (when output-file is not specified)
+  output-file-path:
+    description: Path to the generated output file (when output-file is specified)
+runs:
+  using: docker
+  image: Dockerfile
