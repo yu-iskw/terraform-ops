@@ -33,12 +33,14 @@ type configResourceContext struct {
 }
 
 func buildDependencyGraphWithModules(configuration Configuration, resources []ir.ResourceChange) ir.DependencyGraph {
-	graph := ir.DependencyGraph{}
+	// Preserve the existing resource-level graph as the baseline, then augment
+	// it with module-aware edges. This keeps the established depends_on and
+	// expression-reference behavior while adding module input/output traversal.
+	graph := buildDependencyGraph(configuration, resources)
 	changed := make(map[string]ir.NodeID, len(resources))
 	for _, resource := range resources {
 		id := ir.NodeID(resource.Address)
 		changed[string(resource.Address)] = id
-		graph.Nodes = append(graph.Nodes, ir.Node{ID: id, Address: resource.Address})
 	}
 
 	contexts := flattenConfigResourceContexts(configuration.RootModule)
@@ -52,7 +54,10 @@ func buildDependencyGraphWithModules(configuration Configuration, resources []ir
 		baseToChanges[context.address] = uniqueNodeIDs(baseToChanges[context.address])
 	}
 
-	edges := make(map[string]ir.Edge)
+	edges := make(map[string]ir.Edge, len(graph.Edges))
+	for _, edge := range graph.Edges {
+		addEdge(edges, edge.From, edge.To, edge.Kind, edge.Confidence)
+	}
 
 	// Evaluate resource-level references with module context. Configuration
 	// expressions inside child modules use addresses relative to that module.
@@ -101,6 +106,7 @@ func buildDependencyGraphWithModules(configuration Configuration, resources []ir
 		edges,
 	)
 
+	graph.Edges = graph.Edges[:0]
 	for _, edge := range edges {
 		graph.Edges = append(graph.Edges, edge)
 	}
