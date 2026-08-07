@@ -124,9 +124,138 @@ func TestNormalizeBuildsDependencyBlastRadius(t *testing.T) {
 	}
 }
 
+func TestNormalizeTraversesModuleInputsAndOutputs(t *testing.T) {
+	planJSON := `{
+  "format_version":"1.0",
+  "terraform_version":"1.15.8",
+  "applyable":true,
+  "complete":true,
+  "errored":false,
+  "resource_changes":[
+    {"address":"test_resource.source","mode":"managed","type":"test_resource","name":"source","change":{"actions":["update"]}},
+    {"address":"module.child.test_resource.inner","module_address":"module.child","mode":"managed","type":"test_resource","name":"inner","change":{"actions":["update"]}},
+    {"address":"test_resource.consumer","mode":"managed","type":"test_resource","name":"consumer","change":{"actions":["update"]}}
+  ],
+  "output_changes":{},
+  "configuration":{"root_module":{
+    "resources":[
+      {"address":"test_resource.source","mode":"managed","type":"test_resource","name":"source","expressions":{}},
+      {"address":"test_resource.consumer","mode":"managed","type":"test_resource","name":"consumer","expressions":{"value":{"references":["module.child.result","module.child"]}}}
+    ],
+    "module_calls":{"child":{
+      "expressions":{"source_id":{"references":["test_resource.source.id","test_resource.source"]}},
+      "module":{
+        "resources":[
+          {"address":"test_resource.inner","mode":"managed","type":"test_resource","name":"inner","expressions":{"value":{"references":["var.source_id"]}}}
+        ],
+        "module_calls":{},
+        "outputs":{"result":{"expression":{"references":["test_resource.inner.id","test_resource.inner"]}}}
+      }
+    }},
+    "outputs":{}
+  }}
+}`
+	plan, err := ParseReader(strings.NewReader(planJSON), DefaultMaxPlanBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changeSet, err := Normalize(plan, ir.EngineTerraform, ir.RedactionStandard)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertGraphEdge(t, changeSet.Graph, "test_resource.source", "module.child.test_resource.inner", ir.EdgeModuleInput, ir.ConfidenceExact)
+	assertGraphEdge(t, changeSet.Graph, "module.child.test_resource.inner", "test_resource.consumer", ir.EdgeModuleOutput, ir.ConfidenceExact)
+
+	transitive := changeSet.Graph.TransitiveDependents(ir.NodeID("test_resource.source"))
+	if len(transitive) != 2 || transitive[0] != "module.child.test_resource.inner" || transitive[1] != "test_resource.consumer" {
+		t.Fatalf("unexpected module transitive dependents: %#v", transitive)
+	}
+}
+
+func TestNormalizeDefaultsMissingCompleteForTerraform17(t *testing.T) {
+	plan, err := ParseReader(strings.NewReader(`{
+  "format_version":"1.0",
+  "terraform_version":"1.7.5",
+  "applyable":true,
+  "errored":false,
+  "resource_changes":[],
+  "output_changes":{},
+  "configuration":{"root_module":{"resources":[],"module_calls":{},"outputs":{}}}
+}`), DefaultMaxPlanBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changeSet, err := Normalize(plan, ir.EngineTerraform, ir.RedactionStandard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !changeSet.Plan.Complete {
+		t.Fatal("Terraform 1.7 plan without complete metadata must default to complete")
+	}
+}
+
+func TestNormalizePreservesExplicitIncomplete(t *testing.T) {
+	plan, err := ParseReader(strings.NewReader(`{
+  "format_version":"1.0",
+  "terraform_version":"1.7.5",
+  "applyable":true,
+  "complete":false,
+  "errored":false,
+  "resource_changes":[],
+  "output_changes":{},
+  "configuration":{"root_module":{"resources":[],"module_calls":{},"outputs":{}}}
+}`), DefaultMaxPlanBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changeSet, err := Normalize(plan, ir.EngineTerraform, ir.RedactionStandard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if changeSet.Plan.Complete {
+		t.Fatal("explicit incomplete metadata must be preserved")
+	}
+}
+
+func TestNormalizeKeepsMissingCompleteConservativeForTerraform18(t *testing.T) {
+	plan, err := ParseReader(strings.NewReader(`{
+  "format_version":"1.0",
+  "terraform_version":"1.8.0",
+  "applyable":true,
+  "errored":false,
+  "resource_changes":[],
+  "output_changes":{},
+  "configuration":{"root_module":{"resources":[],"module_calls":{},"outputs":{}}}
+}`), DefaultMaxPlanBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changeSet, err := Normalize(plan, ir.EngineTerraform, ir.RedactionStandard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if changeSet.Plan.Complete {
+		t.Fatal("missing complete metadata on Terraform 1.8+ must remain conservative")
+	}
+}
+
 func TestParseRejectsUnsupportedMajorVersion(t *testing.T) {
 	_, err := ParseReader(strings.NewReader(`{"format_version":"2.0"}`), DefaultMaxPlanBytes)
 	if err == nil || !strings.Contains(err.Error(), "only major version 1") {
 		t.Fatalf("expected unsupported major version error, got %v", err)
 	}
+}
+
+func assertGraphEdge(t *testing.T, graph ir.DependencyGraph, from, to string, kind ir.EdgeKind, confidence ir.EvidenceConfidence) {
+	t.Helper()
+	for _, edge := range graph.Edges {
+		if edge.From == ir.NodeID(from) && edge.To == ir.NodeID(to) && edge.Kind == kind {
+			if edge.Confidence != confidence {
+				t.Fatalf("edge %s -> %s (%s) confidence = %s, want %s", from, to, kind, edge.Confidence, confidence)
+			}
+			return
+		}
+	}
+	t.Fatalf("missing edge %s -> %s (%s): %#v", from, to, kind, graph.Edges)
 }
