@@ -16,6 +16,7 @@ package summary
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -61,11 +62,12 @@ func TestSummarizePlanRedactsNestedSensitiveKeyChanges(t *testing.T) {
 	if strings.Contains(string(data), canary) {
 		t.Fatal("legacy summary retained nested sensitive canary")
 	}
-	if !strings.Contains(string(data), "<redacted>") {
-		t.Fatal("expected redacted marker in detailed key changes")
-	}
 	if len(summary.Changes.Update) != 1 || !summary.Changes.Update[0].Sensitive {
 		t.Fatal("nested sensitivity was not detected")
+	}
+	keyChanges := fmt.Sprint(summary.Changes.Update[0].KeyChanges)
+	if !strings.Contains(keyChanges, "<redacted>") {
+		t.Fatalf("expected redacted marker in detailed key changes, got %s", keyChanges)
 	}
 }
 
