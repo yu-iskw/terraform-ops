@@ -19,7 +19,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yu/terraform-ops/internal/core"
+	"github.com/yu-iskw/terraform-ops/internal/core"
 )
 
 func TestSummarizePlanRedactsNestedSensitiveKeyChanges(t *testing.T) {
@@ -82,6 +82,7 @@ func TestSummarizePlanTreatsBooleanSensitiveOutputMaskAsSensitive(t *testing.T) 
 					AfterSensitive: true,
 				},
 			},
+		},
 	}
 
 	summary, err := NewSummarizer().SummarizePlan(plan, core.SummaryOptions{})
