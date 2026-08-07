@@ -18,10 +18,12 @@
 BINARY_NAME=terraform-ops
 BUILD_DIR=build
 MAIN_PATH=./cmd/terraform-ops
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+LDFLAGS=-X github.com/yu/terraform-ops/internal/version.Version=$(VERSION)
 
 # Go variables
 GOCMD=go
-GOBUILD=$(GOCMD) build
+GOBUILD=$(GOCMD) build -ldflags "$(LDFLAGS)"
 GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
