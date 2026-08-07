@@ -39,6 +39,7 @@ func init() {
 	rootCmd.AddCommand(commands.DefaultShowTerraformCommand().Command())
 	rootCmd.AddCommand(commands.DefaultPlanGraphCommand().Command())
 	rootCmd.AddCommand(commands.DefaultSummarizePlanCommand().Command())
+	rootCmd.AddCommand(commands.DefaultAnalyzeCommand().Command())
 }
 
 // Run executes the root command
