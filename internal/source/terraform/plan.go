@@ -136,8 +136,15 @@ func ParseFile(path string, maxBytes int64) (*Plan, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open plan JSON: %w", err)
 	}
-	defer f.Close()
-	return ParseReader(f, maxBytes)
+	plan, parseErr := ParseReader(f, maxBytes)
+	closeErr := f.Close()
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	if closeErr != nil {
+		return nil, fmt.Errorf("close plan JSON: %w", closeErr)
+	}
+	return plan, nil
 }
 
 func ParseReader(r io.Reader, maxBytes int64) (*Plan, error) {
