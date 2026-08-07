@@ -531,7 +531,8 @@ func walkReferences(value any, refs map[string]struct{}) {
 						if ref, ok := value.(string); ok {
 							refs[ref] = struct{}{}
 						}
-				}
+					}
+			}
 			}
 			walkReferences(child, refs)
 		}
