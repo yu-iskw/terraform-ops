@@ -19,7 +19,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yu-iskw/terraform-ops/internal/core"
+	"github.com/yu/terraform-ops/internal/core"
 )
 
 func TestSummarizePlanRedactsNestedSensitiveKeyChanges(t *testing.T) {
