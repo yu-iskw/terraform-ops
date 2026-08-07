@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/yu/terraform-ops/internal/analysis"
+	"github.com/yu/terraform-ops/internal/version"
 )
 
 func TestAnalyzeCommandJSONDoesNotLeakSensitiveCanary(t *testing.T) {
@@ -64,6 +65,38 @@ func TestAnalyzeCommandJSONDoesNotLeakSensitiveCanary(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), `"rule_id": "TFOPS-SENSITIVE-MUTATION"`) {
 		t.Fatal("expected sensitive mutation finding")
+	}
+}
+
+func TestAnalyzeCommandReportsBuildVersion(t *testing.T) {
+	originalVersion := version.Version
+	version.Version = "v9.9.9-test"
+	defer func() { version.Version = originalVersion }()
+
+	input := `{
+  "format_version":"1.0",
+  "terraform_version":"1.15.8",
+  "applyable":true,
+  "complete":true,
+  "errored":false,
+  "resource_changes":[],
+  "output_changes":{},
+  "configuration":{"root_module":{"resources":[],"module_calls":{},"outputs":{}}}
+}`
+	var stdout bytes.Buffer
+	cmd := NewAnalyzeCommand(analysis.DefaultRegistry(), strings.NewReader(input), &stdout)
+	err := cmd.run(context.Background(), "-", analyzeOptions{
+		format:      "json",
+		engine:      "terraform",
+		redaction:   "standard",
+		failOn:      "none",
+		maxPlanSize: 1 << 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout.String(), `"version": "v9.9.9-test"`) {
+		t.Fatalf("analysis report did not contain build version: %s", stdout.String())
 	}
 }
 
