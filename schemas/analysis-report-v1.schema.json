@@ -3,7 +3,15 @@
   "$id": "https://github.com/yu-iskw/terraform-ops/schemas/analysis-report-v1.schema.json",
   "title": "terraform-ops analysis report v1",
   "type": "object",
-  "required": ["schema_version", "tool", "source", "plan", "summary", "graph", "redaction"],
+  "required": [
+    "schema_version",
+    "tool",
+    "source",
+    "plan",
+    "summary",
+    "graph",
+    "redaction"
+  ],
   "properties": {
     "schema_version": { "const": "1.0" },
     "tool": {
@@ -19,7 +27,9 @@
       "type": "object",
       "required": ["engine", "plan_format_version"],
       "properties": {
-        "engine": { "enum": ["terraform", "opentofu", "unknown-compatible"] },
+        "engine": {
+          "enum": ["terraform", "opentofu", "unknown-compatible"]
+        },
         "engine_version": { "type": "string" },
         "plan_format_version": { "type": "string" }
       },
@@ -51,7 +61,11 @@
     },
     "redaction": {
       "type": "object",
-      "required": ["mode", "terraform_sensitive_paths", "variable_values_removed"],
+      "required": [
+        "mode",
+        "terraform_sensitive_paths",
+        "variable_values_removed"
+      ],
       "properties": {
         "mode": { "enum": ["standard", "strict"] },
         "terraform_sensitive_paths": { "type": "integer", "minimum": 0 },
