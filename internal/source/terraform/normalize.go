@@ -464,9 +464,46 @@ func resolveReference(reference string, changed map[string]ir.NodeID, baseToChan
 		return []ir.NodeID{id}
 	}
 	if ids, ok := baseToChanges[reference]; ok {
-		return ids
+		return append([]ir.NodeID(nil), ids...)
 	}
-	return nil
+
+	// Expression references commonly include an attribute traversal (for example,
+	// aws_instance.web.id) while graph nodes are resource-instance addresses.
+	// Match only at Terraform address boundaries so similarly-prefixed resources
+	// such as foo and foobar are never conflated. Prefer the longest matching
+	// address and return its instances when the reference targets an unkeyed
+	// resource address.
+	type candidate struct {
+		address string
+		ids     []ir.NodeID
+	}
+	var best candidate
+	for address, id := range changed {
+		if referenceHasAddressPrefix(reference, address) && len(address) > len(best.address) {
+			best = candidate{address: address, ids: []ir.NodeID{id}}
+		}
+	}
+	for address, ids := range baseToChanges {
+		if referenceHasAddressPrefix(reference, address) && len(address) > len(best.address) {
+			best = candidate{address: address, ids: append([]ir.NodeID(nil), ids...)}
+		}
+	}
+	return best.ids
+}
+
+func referenceHasAddressPrefix(reference, address string) bool {
+	if reference == address {
+		return true
+	}
+	if !strings.HasPrefix(reference, address) || len(reference) == len(address) {
+		return false
+	}
+	switch reference[len(address)] {
+	case '.', '[':
+		return true
+	default:
+		return false
+	}
 }
 
 func extractReferences(raw json.RawMessage) []string {
@@ -494,7 +531,6 @@ func walkReferences(value any, refs map[string]struct{}) {
 						if ref, ok := value.(string); ok {
 							refs[ref] = struct{}{}
 						}
-					}
 				}
 			}
 			walkReferences(child, refs)
