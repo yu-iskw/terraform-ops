@@ -44,7 +44,7 @@ func Normalize(plan *Plan, engine ir.Engine, mode ir.RedactionMode) (*ir.ChangeS
 		},
 		Plan: ir.PlanMetadata{
 			Applyable: plan.Applyable,
-			Complete:  plan.Complete,
+			Complete:  planComplete(plan),
 			Errored:   plan.Errored,
 		},
 		Redaction: ir.RedactionSummary{
@@ -104,7 +104,7 @@ func Normalize(plan *Plan, engine ir.Engine, mode ir.RedactionMode) (*ir.ChangeS
 		})
 	}
 
-	out.Graph = buildDependencyGraph(plan.Configuration, out.Resources)
+	out.Graph = buildDependencyGraphWithModules(plan.Configuration, out.Resources)
 	out.Sort()
 	return out, nil
 }
