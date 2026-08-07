@@ -106,7 +106,7 @@ func TestNormalizeBuildsDependencyBlastRadius(t *testing.T) {
   "output_changes":{},
   "configuration":{"root_module":{"resources":[
     {"address":"test_resource.a","mode":"managed","type":"test_resource","name":"a","expressions":{}},
-    {"address":"test_resource.b","mode":"managed","type":"test_resource","name":"b","expressions":{"x":{"references":["test_resource.a","test_resource.a.id"]}}},
+    {"address":"test_resource.b","mode":"managed","type":"test_resource","name":"b","expressions":{"x":{"references":["test_resource.a.id"]}}},
     {"address":"test_resource.c","mode":"managed","type":"test_resource","name":"c","expressions":{"x":{"references":["test_resource.b"]}}}
   ],"module_calls":{},"outputs":{}}}
 }`
