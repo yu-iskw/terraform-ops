@@ -27,6 +27,7 @@ import (
 	"github.com/yu/terraform-ops/internal/ir"
 	"github.com/yu/terraform-ops/internal/report"
 	terraformsource "github.com/yu/terraform-ops/internal/source/terraform"
+	"github.com/yu/terraform-ops/internal/version"
 )
 
 type AnalyzeCommand struct {
@@ -111,7 +112,7 @@ func (c *AnalyzeCommand) run(ctx context.Context, planPath string, opts analyzeO
 	if err != nil {
 		return err
 	}
-	analysisReport := report.Build(changeSet, findings, "dev")
+	analysisReport := report.Build(changeSet, findings, version.Version)
 	rendered, err := report.Render(analysisReport, format)
 	if err != nil {
 		return err
