@@ -55,10 +55,16 @@ func TestAnalyzeCommandRedactsGeneratedPlan(t *testing.T) {
 
 	var report struct {
 		SchemaVersion string `json:"schema_version"`
-		Source        struct {
+		Tool          struct {
+			Version string `json:"version"`
+		} `json:"tool"`
+		Source struct {
 			Engine            string `json:"engine"`
 			PlanFormatVersion string `json:"plan_format_version"`
 		} `json:"source"`
+		Plan struct {
+			Complete bool `json:"complete"`
+		} `json:"plan"`
 		Changes []struct {
 			Address        string   `json:"address"`
 			SensitivePaths []string `json:"sensitive_paths"`
@@ -78,8 +84,14 @@ func TestAnalyzeCommandRedactsGeneratedPlan(t *testing.T) {
 	if report.SchemaVersion != "1.0" {
 		t.Fatalf("unexpected report schema version %q", report.SchemaVersion)
 	}
+	if report.Tool.Version == "" || report.Tool.Version == "dev" {
+		t.Fatalf("expected build-stamped tool version, got %q", report.Tool.Version)
+	}
 	if report.Source.Engine != "terraform" || report.Source.PlanFormatVersion == "" {
 		t.Fatalf("unexpected source metadata: %#v", report.Source)
+	}
+	if !report.Plan.Complete {
+		t.Fatal("generated converged plan was reported incomplete")
 	}
 	if report.Redaction.VariableValuesRemoved < 1 {
 		t.Fatal("expected source variable values to be removed before analysis")
@@ -88,7 +100,7 @@ func TestAnalyzeCommandRedactsGeneratedPlan(t *testing.T) {
 		t.Fatal("expected at least one Terraform-sensitive path in the generated plan")
 	}
 
-	var source, consumer *struct {
+	var source, child, consumer *struct {
 		Address        string   `json:"address"`
 		SensitivePaths []string `json:"sensitive_paths"`
 		BlastRadius    struct {
@@ -100,17 +112,22 @@ func TestAnalyzeCommandRedactsGeneratedPlan(t *testing.T) {
 		switch report.Changes[i].Address {
 		case "terraform_data.source":
 			source = &report.Changes[i]
+		case "module.child.terraform_data.child":
+			child = &report.Changes[i]
 		case "terraform_data.consumer":
 			consumer = &report.Changes[i]
 		}
 	}
-	if source == nil || consumer == nil {
-		t.Fatalf("expected source and consumer changes, got %#v", report.Changes)
+	if source == nil || child == nil || consumer == nil {
+		t.Fatalf("expected source, child, and consumer changes, got %#v", report.Changes)
 	}
 	if len(source.SensitivePaths) == 0 {
 		t.Fatal("source resource lost sensitive-path evidence")
 	}
-	if source.BlastRadius.DirectDependents < 1 || source.BlastRadius.TransitiveDependents < 1 {
-		t.Fatalf("expected source blast radius to include consumer, got %#v", source.BlastRadius)
+	if source.BlastRadius.DirectDependents < 1 || source.BlastRadius.TransitiveDependents < 2 {
+		t.Fatalf("expected module input to propagate source blast radius, got %#v", source.BlastRadius)
+	}
+	if child.BlastRadius.DirectDependents < 1 || child.BlastRadius.TransitiveDependents < 1 {
+		t.Fatalf("expected module output to propagate child blast radius, got %#v", child.BlastRadius)
 	}
 }
