@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/yu-iskw/terraform-ops/schemas/analysis-report-v1.schema.json",
+  "title": "terraform-ops analysis report v1",
+  "type": "object",
+  "required": ["schema_version", "tool", "source", "plan", "summary", "graph", "redaction"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "tool": {
+      "type": "object",
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "const": "terraform-ops" },
+        "version": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "source": {
+      "type": "object",
+      "required": ["engine", "plan_format_version"],
+      "properties": {
+        "engine": { "enum": ["terraform", "opentofu", "unknown-compatible"] },
+        "engine_version": { "type": "string" },
+        "plan_format_version": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "plan": {
+      "type": "object",
+      "required": ["applyable", "complete", "errored"],
+      "properties": {
+        "applyable": { "type": "boolean" },
+        "complete": { "type": "boolean" },
+        "errored": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "summary": { "type": "object" },
+    "findings": { "type": "array" },
+    "changes": { "type": "array" },
+    "drift": { "type": "array" },
+    "checks": { "type": "array" },
+    "graph": {
+      "type": "object",
+      "required": ["nodes", "edges"],
+      "properties": {
+        "nodes": { "type": "integer", "minimum": 0 },
+        "edges": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": true
+    },
+    "redaction": {
+      "type": "object",
+      "required": ["mode", "terraform_sensitive_paths", "variable_values_removed"],
+      "properties": {
+        "mode": { "enum": ["standard", "strict"] },
+        "terraform_sensitive_paths": { "type": "integer", "minimum": 0 },
+        "variable_values_removed": { "type": "integer", "minimum": 0 },
+        "strict_values_removed": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
