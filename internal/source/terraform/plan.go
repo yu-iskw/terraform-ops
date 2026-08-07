@@ -32,7 +32,7 @@ type Plan struct {
 	FormatVersion      string                     `json:"format_version"`
 	TerraformVersion   string                     `json:"terraform_version"`
 	Applyable          bool                       `json:"applyable"`
-	Complete           bool                       `json:"complete"`
+	Complete           *bool                      `json:"complete"`
 	Errored            bool                       `json:"errored"`
 	ResourceChanges    []ResourceChange           `json:"resource_changes"`
 	ResourceDrift      []ResourceChange           `json:"resource_drift"`
