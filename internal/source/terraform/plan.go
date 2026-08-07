@@ -110,7 +110,7 @@ type Configuration struct {
 type Module struct {
 	Resources   []ConfigResource        `json:"resources"`
 	Outputs     map[string]ConfigOutput `json:"outputs"`
-	ModuleCalls map[string]ModuleCall    `json:"module_calls"`
+	ModuleCalls map[string]ModuleCall   `json:"module_calls"`
 }
 
 type ConfigResource struct {
