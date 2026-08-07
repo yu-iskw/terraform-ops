@@ -16,9 +16,15 @@ resource "terraform_data" "source" {
   }
 }
 
+module "child" {
+  source = "./child"
+
+  source_id = terraform_data.source.id
+}
+
 resource "terraform_data" "consumer" {
   input = {
-    source_id = terraform_data.source.id
+    child_id = module.child.result
   }
 }
 
