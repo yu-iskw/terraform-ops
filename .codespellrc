@@ -1,0 +1,3 @@
+[codespell]
+# Terraform/OpenTofu's machine-readable plan JSON intentionally uses this token.
+ignore-words-list = applyable
