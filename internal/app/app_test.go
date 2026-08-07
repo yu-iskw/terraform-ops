@@ -35,6 +35,8 @@ func TestRootCmd(t *testing.T) {
 	assert.True(t, rootCmd.HasSubCommands())
 	assert.NotNil(t, findCommand(rootCmd, "show-terraform"))
 	assert.NotNil(t, findCommand(rootCmd, "plan-graph"))
+	assert.NotNil(t, findCommand(rootCmd, "summarize-plan"))
+	assert.NotNil(t, findCommand(rootCmd, "analyze"))
 }
 
 // TestShowTerraformCmd tests the 'show-terraform' command execution
