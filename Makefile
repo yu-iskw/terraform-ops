@@ -50,7 +50,7 @@ test: build
 	$(GOTEST) -v ./internal/...
 
 # Run integration tests
-test-integration: build test-show-terraform test-integration-plan-graph test-summarize-plan
+test-integration: build test-show-terraform test-integration-plan-graph test-summarize-plan test-analyze
 
 test-show-terraform:
 	$(MAKE) -C integration_tests/show_terraform all
@@ -60,6 +60,9 @@ test-integration-plan-graph:
 
 test-summarize-plan:
 	$(MAKE) -C integration_tests/summarize_plan all
+
+test-analyze:
+	$(MAKE) -C integration_tests/analyze all
 
 # Run tests with coverage
 coverage:
