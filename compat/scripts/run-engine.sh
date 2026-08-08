@@ -1,4 +1,5 @@
 #!/bin/sh
+# shellcheck disable=SC2250
 
 set -eu
 
@@ -6,10 +7,11 @@ ENGINE_BIN=${ENGINE_BIN:?ENGINE_BIN is required}
 OUTPUT_FILE=${OUTPUT_FILE:?OUTPUT_FILE is required}
 
 case "$OUTPUT_FILE" in
-	""|*/*|..|.*)
+	"" | */* | .. | .*)
 		echo "invalid OUTPUT_FILE: $OUTPUT_FILE" >&2
 		exit 2
 		;;
+	*) ;;
 esac
 
 workdir=/tmp/terraform-ops-compat
