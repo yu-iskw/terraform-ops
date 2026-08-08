@@ -31,7 +31,7 @@ var ErrPlanTooLarge = errors.New("plan JSON exceeds maximum input size")
 type Plan struct {
 	FormatVersion      string                     `json:"format_version"`
 	TerraformVersion   string                     `json:"terraform_version"`
-	Applyable          *bool                      `json:"applyable"`
+	Applyable          bool                       `json:"applyable"`
 	Complete           *bool                      `json:"complete"`
 	Errored            bool                       `json:"errored"`
 	ResourceChanges    []ResourceChange           `json:"resource_changes"`
@@ -41,6 +41,7 @@ type Plan struct {
 	Checks             []Check                    `json:"checks"`
 	Configuration      Configuration              `json:"configuration"`
 	Variables          map[string]json.RawMessage `json:"variables"`
+	applyablePresent   bool
 }
 
 type ResourceChange struct {
@@ -129,6 +130,52 @@ type ConfigOutput struct {
 type ModuleCall struct {
 	Expressions map[string]json.RawMessage `json:"expressions"`
 	Module      *Module                    `json:"module"`
+}
+
+// UnmarshalJSON preserves whether Terraform's optional applyable field was
+// actually present. OpenTofu's current JSON plan contract omits that field; in
+// that case we derive a compatible boolean from actionable changes rather than
+// silently treating every OpenTofu plan as non-applyable.
+func (p *Plan) UnmarshalJSON(data []byte) error {
+	type alias Plan
+	aux := struct {
+		*alias
+		Applyable *bool `json:"applyable"`
+	}{alias: (*alias)(p)}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	p.applyablePresent = aux.Applyable != nil
+	if aux.Applyable != nil {
+		p.Applyable = *aux.Applyable
+	} else {
+		p.Applyable = hasActionableChanges(p)
+	}
+	return nil
+}
+
+func hasActionableChanges(plan *Plan) bool {
+	for _, resource := range plan.ResourceChanges {
+		if actionable(resource.Change.Actions) {
+			return true
+		}
+	}
+	for _, output := range plan.OutputChanges {
+		if actionable(output.Change.Actions) {
+			return true
+		}
+	}
+	return false
+}
+
+func actionable(actions []string) bool {
+	for _, action := range actions {
+		switch action {
+		case "create", "update", "delete":
+			return true
+		}
+	}
+	return false
 }
 
 func ParseFile(path string, maxBytes int64) (*Plan, error) {
