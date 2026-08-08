@@ -70,6 +70,35 @@ resource "terraform_data" "inner" {
 	}
 }
 
+func TestBuildWithArtifactRootEmitsRepositoryRelativePaths(t *testing.T) {
+	repositoryRoot := t.TempDir()
+	workspaceRoot := filepath.Join(repositoryRoot, "infra", "prod")
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeTestFile(t, filepath.Join(workspaceRoot, "main.tf"), `resource "terraform_data" "example" {}`)
+
+	idx, err := BuildWithArtifactRoot(workspaceRoot, repositoryRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	location, ok := idx.Resolve("terraform_data.example")
+	if !ok {
+		t.Fatal("resource was not indexed")
+	}
+	if location.Path != "infra/prod/main.tf" {
+		t.Fatalf("location path = %q, want infra/prod/main.tf", location.Path)
+	}
+}
+
+func TestBuildWithArtifactRootRejectsWorkspaceOutsideArtifactRoot(t *testing.T) {
+	artifactRoot := t.TempDir()
+	workspaceRoot := t.TempDir()
+	if _, err := BuildWithArtifactRoot(workspaceRoot, artifactRoot); err == nil {
+		t.Fatal("expected workspace/artifact containment error")
+	}
+}
+
 func TestBuildDoesNotTraverseModuleOutsideWorkspace(t *testing.T) {
 	parent := t.TempDir()
 	root := filepath.Join(parent, "root")
