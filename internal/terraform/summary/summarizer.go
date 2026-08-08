@@ -97,7 +97,8 @@ func (s *Summarizer) groupResourceChanges(plan *core.TerraformPlan) core.Changes
 			Sensitive:     s.hasSensitiveValues(change.Change),
 		}
 
-		// Add key changes if details are requested
+		// Key changes are built only from recursively redacted values. This keeps the
+		// legacy summary command safe while it is incrementally migrated to the v2 IR.
 		summary.KeyChanges = s.extractKeyChanges(change)
 
 		// Group by primary action
@@ -130,7 +131,7 @@ func (s *Summarizer) summarizeOutputs(plan *core.TerraformPlan) []core.OutputSum
 			Sensitive: s.hasSensitiveValues(outputChange.Change),
 		}
 
-		// Add value if not sensitive
+		// Add value only if the source plan says no part of the output is sensitive.
 		if !summary.Sensitive {
 			summary.Value = outputChange.Change.After
 		}
@@ -174,41 +175,23 @@ func (s *Summarizer) extractProvider(address string) string {
 	return "unknown"
 }
 
-// hasSensitiveValues checks if a change has sensitive values
+// hasSensitiveValues checks recursively whether a Terraform/OpenTofu sensitivity
+// mask contains any true leaf. Source plan masks can be bools, nested objects, or
+// nested arrays; checking only top-level map values is insufficient.
 func (s *Summarizer) hasSensitiveValues(change core.Change) bool {
-	// Check after_sensitive
-	if change.AfterSensitive != nil {
-		if sensitiveMap, ok := change.AfterSensitive.(map[string]interface{}); ok {
-			for _, sensitive := range sensitiveMap {
-				if sensitiveBool, ok := sensitive.(bool); ok && sensitiveBool {
-					return true
-				}
-			}
-		}
-	}
-
-	// Check before_sensitive
-	if change.BeforeSensitive != nil {
-		if sensitiveMap, ok := change.BeforeSensitive.(map[string]interface{}); ok {
-			for _, sensitive := range sensitiveMap {
-				if sensitiveBool, ok := sensitive.(bool); ok && sensitiveBool {
-					return true
-				}
-			}
-		}
-	}
-
-	return false
+	return containsSensitive(change.AfterSensitive) || containsSensitive(change.BeforeSensitive)
 }
 
-// extractKeyChanges extracts key changes from a resource change
+// extractKeyChanges extracts key changes from recursively redacted resource values.
 func (s *Summarizer) extractKeyChanges(change core.ResourceChange) map[string]interface{} {
 	keyChanges := make(map[string]interface{})
+	before := redactSensitive(change.Change.Before, change.Change.BeforeSensitive)
+	after := redactSensitive(change.Change.After, change.Change.AfterSensitive)
 
 	// Extract key changes from before/after values
-	if change.Change.Before != nil && change.Change.After != nil {
-		if beforeMap, ok := change.Change.Before.(map[string]interface{}); ok {
-			if afterMap, ok := change.Change.After.(map[string]interface{}); ok {
+	if before != nil && after != nil {
+		if beforeMap, ok := before.(map[string]interface{}); ok {
+			if afterMap, ok := after.(map[string]interface{}); ok {
 				// Find changed keys
 				for key, afterValue := range afterMap {
 					if beforeValue, exists := beforeMap[key]; exists {
@@ -238,9 +221,9 @@ func (s *Summarizer) extractKeyChanges(change core.ResourceChange) map[string]in
 				}
 			}
 		}
-	} else if change.Change.Before == nil && change.Change.After != nil {
+	} else if before == nil && after != nil {
 		// Creating new resource
-		if afterMap, ok := change.Change.After.(map[string]interface{}); ok {
+		if afterMap, ok := after.(map[string]interface{}); ok {
 			for key, value := range afterMap {
 				keyChanges[key] = map[string]interface{}{
 					"from": nil,
@@ -248,9 +231,9 @@ func (s *Summarizer) extractKeyChanges(change core.ResourceChange) map[string]in
 				}
 			}
 		}
-	} else if change.Change.Before != nil && change.Change.After == nil {
+	} else if before != nil && after == nil {
 		// Deleting resource
-		if beforeMap, ok := change.Change.Before.(map[string]interface{}); ok {
+		if beforeMap, ok := before.(map[string]interface{}); ok {
 			for key, value := range beforeMap {
 				keyChanges[key] = map[string]interface{}{
 					"from": value,
@@ -276,6 +259,65 @@ func (s *Summarizer) getPrimaryAction(actions []string) string {
 
 	// Return the first action as primary
 	return actions[0]
+}
+
+func containsSensitive(mask interface{}) bool {
+	switch typed := mask.(type) {
+	case bool:
+		return typed
+	case map[string]interface{}:
+		for _, child := range typed {
+			if containsSensitive(child) {
+				return true
+			}
+		}
+	case []interface{}:
+		for _, child := range typed {
+			if containsSensitive(child) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// redactSensitive combines a decoded value with its sensitivity mask. A true
+// mask leaf replaces the corresponding value before any legacy summary DTO is
+// constructed, preventing KeyChanges from retaining raw secrets.
+func redactSensitive(value, mask interface{}) interface{} {
+	if sensitive, ok := mask.(bool); ok && sensitive {
+		return "<redacted>"
+	}
+	if mask == nil {
+		return value
+	}
+
+	switch typedValue := value.(type) {
+	case map[string]interface{}:
+		typedMask, _ := mask.(map[string]interface{})
+		out := make(map[string]interface{}, len(typedValue))
+		for key, child := range typedValue {
+			var childMask interface{}
+			if typedMask != nil {
+				childMask = typedMask[key]
+			}
+			out[key] = redactSensitive(child, childMask)
+		}
+		return out
+	case []interface{}:
+		typedMask, _ := mask.([]interface{})
+		out := make([]interface{}, len(typedValue))
+		for i, child := range typedValue {
+			var childMask interface{}
+			if i < len(typedMask) {
+				childMask = typedMask[i]
+			}
+			out[i] = redactSensitive(child, childMask)
+		}
+		return out
+	default:
+		return value
+	}
 }
 
 // contains checks if a slice contains a specific string

@@ -18,10 +18,12 @@
 BINARY_NAME=terraform-ops
 BUILD_DIR=build
 MAIN_PATH=./cmd/terraform-ops
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+LDFLAGS=-X github.com/yu/terraform-ops/internal/version.Version=$(VERSION)
 
 # Go variables
 GOCMD=go
-GOBUILD=$(GOCMD) build
+GOBUILD=$(GOCMD) build -ldflags "$(LDFLAGS)"
 GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
@@ -50,7 +52,7 @@ test: build
 	$(GOTEST) -v ./internal/...
 
 # Run integration tests
-test-integration: build test-show-terraform test-integration-plan-graph test-summarize-plan
+test-integration: build test-show-terraform test-integration-plan-graph test-summarize-plan test-analyze
 
 test-show-terraform:
 	$(MAKE) -C integration_tests/show_terraform all
@@ -60,6 +62,9 @@ test-integration-plan-graph:
 
 test-summarize-plan:
 	$(MAKE) -C integration_tests/summarize_plan all
+
+test-analyze:
+	$(MAKE) -C integration_tests/analyze all
 
 # Run tests with coverage
 coverage:

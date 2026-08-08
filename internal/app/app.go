@@ -21,14 +21,16 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/yu/terraform-ops/internal/commands"
+	"github.com/yu/terraform-ops/internal/version"
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "terraform-ops",
-	Short: "Terraform operations CLI tool",
-	Long:  `A CLI tool for managing Terraform operations and workflows`,
+	Use:     "terraform-ops",
+	Short:   "Terraform operations CLI tool",
+	Long:    `A CLI tool for managing Terraform operations and workflows`,
+	Version: version.Version,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Terraform Ops CLI v1.0.0")
+		fmt.Printf("Terraform Ops CLI %s\n", version.Version)
 		fmt.Println("Use --help for more information")
 	},
 }
@@ -39,6 +41,7 @@ func init() {
 	rootCmd.AddCommand(commands.DefaultShowTerraformCommand().Command())
 	rootCmd.AddCommand(commands.DefaultPlanGraphCommand().Command())
 	rootCmd.AddCommand(commands.DefaultSummarizePlanCommand().Command())
+	rootCmd.AddCommand(commands.DefaultAnalyzeCommand().Command())
 }
 
 // Run executes the root command
