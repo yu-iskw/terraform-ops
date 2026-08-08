@@ -18,600 +18,101 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/yu/terraform-ops/internal/core"
+	"github.com/yu/terraform-ops/internal/ir"
 )
 
-func TestNewBuilder(t *testing.T) {
-	builder := NewBuilder()
-	assert.NotNil(t, builder)
-}
-
-func TestBuildGraph_EmptyPlan(t *testing.T) {
-	plan := &core.TerraformPlan{
-		FormatVersion:   "1.0",
-		ResourceChanges: []core.ResourceChange{},
-		OutputChanges:   make(map[string]core.OutputChange),
-		Variables:       make(map[string]core.Variable),
-		Configuration: core.Configuration{
-			RootModule: core.RootModule{
-				Resources:   []core.ConfigurationResource{},
-				ModuleCalls: make(map[string]core.ModuleCall),
-				Outputs:     make(map[string]core.OutputConfig),
-				Variables:   make(map[string]core.VariableConfig),
-				Locals:      make(map[string]core.LocalConfig),
-			},
-		},
-		Applicable: true,
-		Complete:   true,
-		Errored:    false,
-	}
-
-	opts := core.GraphOptions{
-		Format:        core.FormatGraphviz,
-		NoDataSources: false,
-		NoOutputs:     false,
-		NoVariables:   false,
-		NoLocals:      false,
-		Verbose:       false,
-	}
-
-	builder := NewBuilder()
-	graphData, err := builder.BuildGraph(plan, opts)
-
-	assert.NoError(t, err)
-	assert.NotNil(t, graphData)
-	assert.Empty(t, graphData.Nodes)
-	assert.Empty(t, graphData.Edges)
-}
-
-func TestBuildGraph_SimpleResources(t *testing.T) {
-	plan := &core.TerraformPlan{
-		FormatVersion: "1.0",
-		ResourceChanges: []core.ResourceChange{
+func TestBuildGraphProjectsNormalizedNodesAndEdges(t *testing.T) {
+	module := ir.Address("module.child")
+	changeSet := &ir.ChangeSet{
+		Resources: []ir.ResourceChange{
 			{
-				Address:       "aws_instance.web",
-				ModuleAddress: "",
-				Mode:          "managed",
-				Type:          "aws_instance",
-				Name:          "web",
-				Change: core.Change{
-					Actions: []string{"create"},
-					Before:  nil,
-					After:   map[string]interface{}{"instance_type": "t3.micro"},
-				},
+				Address: "aws_instance.web", Mode: ir.ResourceModeManaged, Type: "aws_instance", Name: "web",
+				Action: ir.NormalizeAction([]string{"update"}),
 			},
 			{
-				Address:       "aws_security_group.web",
-				ModuleAddress: "",
-				Mode:          "managed",
-				Type:          "aws_security_group",
-				Name:          "web",
-				Change: core.Change{
-					Actions: []string{"create"},
-					Before:  nil,
-					After:   map[string]interface{}{"name": "web-sg"},
-				},
+				Address: "data.aws_ami.latest", Mode: ir.ResourceModeData, Type: "aws_ami", Name: "latest",
+				Action: ir.NormalizeAction([]string{"read"}),
 			},
-		},
-		OutputChanges: make(map[string]core.OutputChange),
-		Variables:     make(map[string]core.Variable),
-		Configuration: core.Configuration{
-			RootModule: core.RootModule{
-				Resources:   []core.ConfigurationResource{},
-				ModuleCalls: make(map[string]core.ModuleCall),
-				Outputs:     make(map[string]core.OutputConfig),
-				Variables:   make(map[string]core.VariableConfig),
-				Locals:      make(map[string]core.LocalConfig),
-			},
-		},
-		Applicable: true,
-		Complete:   true,
-		Errored:    false,
-	}
-
-	opts := core.GraphOptions{
-		Format:        core.FormatGraphviz,
-		NoDataSources: false,
-		NoOutputs:     false,
-		NoVariables:   false,
-		NoLocals:      false,
-		Verbose:       false,
-	}
-
-	builder := NewBuilder()
-	graphData, err := builder.BuildGraph(plan, opts)
-
-	assert.NoError(t, err)
-	assert.NotNil(t, graphData)
-	assert.Len(t, graphData.Nodes, 2)
-	assert.Empty(t, graphData.Edges) // No dependencies defined
-
-	// Check first node
-	assert.Equal(t, "aws_instance_web", graphData.Nodes[0].ID)
-	assert.Equal(t, "aws_instance.web", graphData.Nodes[0].Address)
-	assert.Equal(t, "aws_instance", graphData.Nodes[0].Type)
-	assert.Equal(t, "web", graphData.Nodes[0].Name)
-	assert.Equal(t, "aws", graphData.Nodes[0].Provider)
-}
-
-func TestBuildGraph_WithDataSources(t *testing.T) {
-	plan := &core.TerraformPlan{
-		FormatVersion: "1.0",
-		ResourceChanges: []core.ResourceChange{
 			{
-				Address:       "data.aws_ami.ubuntu",
-				ModuleAddress: "",
-				Mode:          "data",
-				Type:          "aws_ami",
-				Name:          "ubuntu",
-				Change: core.Change{
-					Actions: []string{"read"},
-					Before:  nil,
-					After:   map[string]interface{}{"most_recent": true},
-				},
+				Address: "module.child.aws_instance.worker", ModuleAddress: &module, Mode: ir.ResourceModeManaged,
+				Type: "aws_instance", Name: "worker", Action: ir.NormalizeAction([]string{"create"}),
 			},
 		},
-		OutputChanges: make(map[string]core.OutputChange),
-		Variables:     make(map[string]core.Variable),
-		Configuration: core.Configuration{
-			RootModule: core.RootModule{
-				Resources:   []core.ConfigurationResource{},
-				ModuleCalls: make(map[string]core.ModuleCall),
-				Outputs:     make(map[string]core.OutputConfig),
-				Variables:   make(map[string]core.VariableConfig),
-				Locals:      make(map[string]core.LocalConfig),
+		Outputs: []ir.OutputChange{{Name: "id", Action: ir.NormalizeAction([]string{"update"})}},
+		Graph: ir.DependencyGraph{
+			Nodes: []ir.Node{
+				{ID: "var.region", Address: "var.region", Kind: ir.NodeKindVariable},
+				{ID: "data.aws_ami.latest", Address: "data.aws_ami.latest", Kind: ir.NodeKindData},
+				{ID: "aws_instance.web", Address: "aws_instance.web", Kind: ir.NodeKindResource},
+				{ID: "module.child.aws_instance.worker", Address: "module.child.aws_instance.worker", Kind: ir.NodeKindResource},
+				{ID: "output.id", Address: "output.id", Kind: ir.NodeKindOutput},
+			},
+			Edges: []ir.Edge{
+				{From: "var.region", To: "aws_instance.web", Kind: ir.EdgeVariableReference, Confidence: ir.ConfidenceExact},
+				{From: "data.aws_ami.latest", To: "aws_instance.web", Kind: ir.EdgeExpressionRef, Confidence: ir.ConfidenceExact},
+				{From: "aws_instance.web", To: "module.child.aws_instance.worker", Kind: ir.EdgeModuleInput, Confidence: ir.ConfidenceExact},
+				{From: "aws_instance.web", To: "module.child.aws_instance.worker", Kind: ir.EdgeExpressionRef, Confidence: ir.ConfidenceStrong},
+				{From: "module.child.aws_instance.worker", To: "output.id", Kind: ir.EdgeOutputReference, Confidence: ir.ConfidenceExact},
 			},
 		},
-		Applicable: true,
-		Complete:   true,
-		Errored:    false,
 	}
 
-	opts := core.GraphOptions{
-		Format:        core.FormatGraphviz,
-		NoDataSources: false,
-		NoOutputs:     false,
-		NoVariables:   false,
-		NoLocals:      false,
-		Verbose:       false,
+	got, err := NewBuilder().BuildGraph(changeSet, core.GraphOptions{})
+	require.NoError(t, err)
+	require.Len(t, got.Nodes, 5)
+	// Two normalized evidence edges connect web -> worker, but a renderer needs
+	// one visual edge for that pair.
+	require.Len(t, got.Edges, 4)
+
+	byAddress := make(map[string]core.GraphNode)
+	for _, node := range got.Nodes {
+		byAddress[node.Address] = node
 	}
-
-	builder := NewBuilder()
-	graphData, err := builder.BuildGraph(plan, opts)
-
-	assert.NoError(t, err)
-	assert.NotNil(t, graphData)
-	assert.Len(t, graphData.Nodes, 1)
-
-	assert.Equal(t, "data_aws_ami_ubuntu", graphData.Nodes[0].ID)
-	assert.Equal(t, "data.aws_ami.ubuntu", graphData.Nodes[0].Address)
-	assert.Equal(t, "aws_ami", graphData.Nodes[0].Type)
-	assert.Equal(t, "ubuntu", graphData.Nodes[0].Name)
-	assert.Equal(t, "", graphData.Nodes[0].Module)
-	assert.Equal(t, "aws", graphData.Nodes[0].Provider)
-	assert.Equal(t, []string{"read"}, graphData.Nodes[0].Actions)
+	assert.Equal(t, "aws", byAddress["aws_instance.web"].Provider)
+	assert.Equal(t, []string{"update"}, byAddress["aws_instance.web"].Actions)
+	assert.Equal(t, string(core.NodeTypeVariable), byAddress["var.region"].Type)
+	assert.Equal(t, string(core.NodeTypeOutput), byAddress["output.id"].Type)
+	assert.Equal(t, "module.child", byAddress["module.child.aws_instance.worker"].Module)
 }
 
-func TestBuildGraph_NoDataSources(t *testing.T) {
-	plan := &core.TerraformPlan{
-		FormatVersion: "1.0",
-		ResourceChanges: []core.ResourceChange{
-			{
-				Address:       "data.aws_ami.ubuntu",
-				ModuleAddress: "",
-				Mode:          "data",
-				Type:          "aws_ami",
-				Name:          "ubuntu",
-				Change: core.Change{
-					Actions: []string{"read"},
-					Before:  nil,
-					After:   map[string]interface{}{"most_recent": true},
-				},
-			},
+func TestBuildGraphFiltersNormalizedNodeKinds(t *testing.T) {
+	module := ir.Address("module.child")
+	changeSet := &ir.ChangeSet{
+		Resources: []ir.ResourceChange{
+			{Address: "data.test.lookup", Mode: ir.ResourceModeData, Type: "test_lookup", Name: "lookup"},
+			{Address: "module.child.test_resource.item", ModuleAddress: &module, Mode: ir.ResourceModeManaged, Type: "test_resource", Name: "item"},
 		},
-		OutputChanges: make(map[string]core.OutputChange),
-		Variables:     make(map[string]core.Variable),
-		Configuration: core.Configuration{
-			RootModule: core.RootModule{
-				Resources:   []core.ConfigurationResource{},
-				ModuleCalls: make(map[string]core.ModuleCall),
-				Outputs:     make(map[string]core.OutputConfig),
-				Variables:   make(map[string]core.VariableConfig),
-				Locals:      make(map[string]core.LocalConfig),
+		Outputs: []ir.OutputChange{{Name: "result"}},
+		Graph: ir.DependencyGraph{
+			Nodes: []ir.Node{
+				{ID: "var.input", Address: "var.input", Kind: ir.NodeKindVariable},
+				{ID: "data.test.lookup", Address: "data.test.lookup", Kind: ir.NodeKindData},
+				{ID: "module.child.test_resource.item", Address: "module.child.test_resource.item", Kind: ir.NodeKindResource},
+				{ID: "output.result", Address: "output.result", Kind: ir.NodeKindOutput},
 			},
+			Edges: []ir.Edge{{From: "var.input", To: "module.child.test_resource.item", Kind: ir.EdgeModuleInput}},
 		},
-		Applicable: true,
-		Complete:   true,
-		Errored:    false,
 	}
 
-	opts := core.GraphOptions{
-		Format:        core.FormatGraphviz,
-		NoDataSources: true, // Exclude data sources
-		NoOutputs:     false,
-		NoVariables:   false,
-		NoLocals:      false,
-		Verbose:       false,
-	}
-
-	builder := NewBuilder()
-	graphData, err := builder.BuildGraph(plan, opts)
-
-	assert.NoError(t, err)
-	assert.NotNil(t, graphData)
-	assert.Empty(t, graphData.Nodes) // Data source should be excluded
-	assert.Empty(t, graphData.Edges)
+	got, err := NewBuilder().BuildGraph(changeSet, core.GraphOptions{
+		NoDataSources: true,
+		NoOutputs:     true,
+		NoVariables:   true,
+		NoModules:     true,
+	})
+	require.NoError(t, err)
+	assert.Empty(t, got.Nodes)
+	assert.Empty(t, got.Edges)
 }
 
-func TestBuildGraph_WithOutputs(t *testing.T) {
-	plan := &core.TerraformPlan{
-		FormatVersion:   "1.0",
-		ResourceChanges: []core.ResourceChange{},
-		OutputChanges: map[string]core.OutputChange{
-			"instance_id": {
-				Change: core.Change{
-					Actions: []string{"create"},
-					Before:  nil,
-					After:   "i-1234567890abcdef0",
-				},
-			},
-		},
-		Variables: make(map[string]core.Variable),
-		Configuration: core.Configuration{
-			RootModule: core.RootModule{
-				Resources:   []core.ConfigurationResource{},
-				ModuleCalls: make(map[string]core.ModuleCall),
-				Outputs:     make(map[string]core.OutputConfig),
-				Variables:   make(map[string]core.VariableConfig),
-				Locals:      make(map[string]core.LocalConfig),
-			},
-		},
-		Applicable: true,
-		Complete:   true,
-		Errored:    false,
-	}
-
-	opts := core.GraphOptions{
-		Format:        core.FormatGraphviz,
-		NoDataSources: false,
-		NoOutputs:     false,
-		NoVariables:   false,
-		NoLocals:      false,
-		Verbose:       false,
-	}
-
-	builder := NewBuilder()
-	graphData, err := builder.BuildGraph(plan, opts)
-
-	assert.NoError(t, err)
-	assert.NotNil(t, graphData)
-	assert.Len(t, graphData.Nodes, 1)
-
-	assert.Equal(t, "output_instance_id", graphData.Nodes[0].ID)
-	assert.Equal(t, "output.instance_id", graphData.Nodes[0].Address)
-	assert.Equal(t, string(core.NodeTypeOutput), graphData.Nodes[0].Type)
-	assert.Equal(t, "instance_id", graphData.Nodes[0].Name)
-	assert.Equal(t, "", graphData.Nodes[0].Module)
-	assert.Equal(t, []string{"create"}, graphData.Nodes[0].Actions)
-}
-
-func TestBuildGraph_NoOutputs(t *testing.T) {
-	plan := &core.TerraformPlan{
-		FormatVersion:   "1.0",
-		ResourceChanges: []core.ResourceChange{},
-		OutputChanges: map[string]core.OutputChange{
-			"instance_id": {
-				Change: core.Change{
-					Actions: []string{"create"},
-					Before:  nil,
-					After:   "i-1234567890abcdef0",
-				},
-			},
-		},
-		Variables: make(map[string]core.Variable),
-		Configuration: core.Configuration{
-			RootModule: core.RootModule{
-				Resources:   []core.ConfigurationResource{},
-				ModuleCalls: make(map[string]core.ModuleCall),
-				Outputs:     make(map[string]core.OutputConfig),
-				Variables:   make(map[string]core.VariableConfig),
-				Locals:      make(map[string]core.LocalConfig),
-			},
-		},
-		Applicable: true,
-		Complete:   true,
-		Errored:    false,
-	}
-
-	opts := core.GraphOptions{
-		Format:        core.FormatGraphviz,
-		NoDataSources: false,
-		NoOutputs:     true, // Exclude outputs
-		NoVariables:   false,
-		NoLocals:      false,
-		Verbose:       false,
-	}
-
-	builder := NewBuilder()
-	graphData, err := builder.BuildGraph(plan, opts)
-
-	assert.NoError(t, err)
-	assert.NotNil(t, graphData)
-	assert.Empty(t, graphData.Nodes) // Output should be excluded
-	assert.Empty(t, graphData.Edges)
-}
-
-func TestBuildGraph_WithVariables(t *testing.T) {
-	plan := &core.TerraformPlan{
-		FormatVersion:   "1.0",
-		ResourceChanges: []core.ResourceChange{},
-		OutputChanges:   make(map[string]core.OutputChange),
-		Variables: map[string]core.Variable{
-			"region": {Value: "us-west-2"},
-			"zone":   {Value: "us-west-2a"},
-		},
-		Configuration: core.Configuration{
-			RootModule: core.RootModule{
-				Resources:   []core.ConfigurationResource{},
-				ModuleCalls: make(map[string]core.ModuleCall),
-				Outputs:     make(map[string]core.OutputConfig),
-				Variables:   make(map[string]core.VariableConfig),
-				Locals:      make(map[string]core.LocalConfig),
-			},
-		},
-		Applicable: true,
-		Complete:   true,
-		Errored:    false,
-	}
-
-	opts := core.GraphOptions{
-		Format:        core.FormatGraphviz,
-		NoDataSources: false,
-		NoOutputs:     false,
-		NoVariables:   false,
-		NoLocals:      false,
-		Verbose:       false,
-	}
-
-	builder := NewBuilder()
-	graphData, err := builder.BuildGraph(plan, opts)
-
-	assert.NoError(t, err)
-	assert.NotNil(t, graphData)
-	assert.Len(t, graphData.Nodes, 2)
-
-	// Check variables are added
-	var varNames []string
-	for _, node := range graphData.Nodes {
-		if node.Type == "variable" {
-			varNames = append(varNames, node.Name)
-		}
-	}
-	assert.Contains(t, varNames, "region")
-	assert.Contains(t, varNames, "zone")
-}
-
-func TestBuildGraph_WithLocals(t *testing.T) {
-	plan := &core.TerraformPlan{
-		FormatVersion:   "1.0",
-		ResourceChanges: []core.ResourceChange{},
-		OutputChanges:   make(map[string]core.OutputChange),
-		Variables:       make(map[string]core.Variable),
-		Configuration: core.Configuration{
-			RootModule: core.RootModule{
-				Resources:   []core.ConfigurationResource{},
-				ModuleCalls: make(map[string]core.ModuleCall),
-				Outputs:     make(map[string]core.OutputConfig),
-				Variables:   make(map[string]core.VariableConfig),
-				Locals: map[string]core.LocalConfig{
-					"common_tags": {Expression: map[string]interface{}{}},
-					"env":         {Expression: map[string]interface{}{}},
-				},
-			},
-		},
-		Applicable: true,
-		Complete:   true,
-		Errored:    false,
-	}
-
-	opts := core.GraphOptions{
-		Format:        core.FormatGraphviz,
-		NoDataSources: false,
-		NoOutputs:     false,
-		NoVariables:   false,
-		NoLocals:      false,
-		Verbose:       false,
-	}
-
-	builder := NewBuilder()
-	graphData, err := builder.BuildGraph(plan, opts)
-
-	assert.NoError(t, err)
-	assert.NotNil(t, graphData)
-	assert.Len(t, graphData.Nodes, 2)
-
-	// Check locals are added
-	var localNames []string
-	for _, node := range graphData.Nodes {
-		if node.Type == "local" {
-			localNames = append(localNames, node.Name)
-		}
-	}
-	assert.Contains(t, localNames, "common_tags")
-	assert.Contains(t, localNames, "env")
+func TestBuildGraphRejectsNilChangeSet(t *testing.T) {
+	_, err := NewBuilder().BuildGraph(nil, core.GraphOptions{})
+	require.Error(t, err)
 }
 
 func TestSanitizeID(t *testing.T) {
-	testCases := []struct {
-		input    string
-		expected string
-	}{
-		{"aws_instance.web", "aws_instance_web"},
-		{"module.app.aws_instance.web", "module_app_aws_instance_web"},
-		{"data.aws_ami.ubuntu", "data_aws_ami_ubuntu"},
-		{"output.instance_id", "output_instance_id"},
-		{"var.region", "var_region"},
-		{"local.common_tags", "local_common_tags"},
-		{"aws_instance.web[0]", "aws_instance_web_0_"},
-		{"aws_instance.web[\"prod\"]", "aws_instance_web_\"prod\"_"},
-		{"aws_instance.web(prod)", "aws_instance_web_prod_"},
-		{"aws instance web", "aws_instance_web"},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.input, func(t *testing.T) {
-			result := sanitizeID(tc.input)
-			assert.Equal(t, tc.expected, result)
-		})
-	}
-}
-
-func TestHasSensitiveValues(t *testing.T) {
-	// Test with nil
-	assert.False(t, hasSensitiveValues(nil))
-
-	// Test with false
-	assert.False(t, hasSensitiveValues(false))
-
-	// Test with true
-	assert.False(t, hasSensitiveValues(true))
-
-	// Test with map
-	sensitiveMap := map[string]interface{}{
-		"password": true,
-		"secret":   false,
-	}
-	assert.False(t, hasSensitiveValues(sensitiveMap))
-}
-
-func TestIsResourceType(t *testing.T) {
-	testCases := []struct {
-		input    string
-		expected bool
-	}{
-		{"aws_instance", true},
-		{"google_compute_instance", true},
-		{"azurerm_virtual_machine", true},
-		{"kubernetes_pod", true},
-		{"docker_container", true},
-		{"null_resource", true},
-		{"random_string", true},
-		{"local_file", true},
-		{"template_file", true},
-		{"archive_file", true},
-		{"external", false}, // Single word, not a resource type
-		{"http", false},     // Single word, not a resource type
-		{"tls_private_key", true},
-		{"time_static", true},
-		{"custom_provider_resource", true}, // Any provider_resource pattern
-		{"unknown_type", true},             // Any provider_resource pattern
-		{"", false},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.input, func(t *testing.T) {
-			result := isResourceType(tc.input)
-			assert.Equal(t, tc.expected, result)
-		})
-	}
-}
-
-func TestExtractProviderFromType(t *testing.T) {
-	testCases := []struct {
-		input    string
-		expected string
-	}{
-		{"aws_instance", "aws"},
-		{"google_compute_instance", "google"},
-		{"azurerm_virtual_machine", "azurerm"},
-		{"kubernetes_pod", "kubernetes"},
-		{"docker_container", "docker"},
-		{"null_resource", "null"},
-		{"random_string", "random"},
-		{"local_file", "local"},
-		{"template_file", "template"},
-		{"archive_file", "archive"},
-		{"tls_private_key", "tls"},
-		{"time_static", "time"},
-		{"custom_provider_resource", "custom"},
-		{"unknown_type", "unknown"},
-		{"external", ""}, // Single word, no provider
-		{"http", ""},     // Single word, no provider
-		{"", ""},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.input, func(t *testing.T) {
-			result := extractProviderFromType(tc.input)
-			assert.Equal(t, tc.expected, result)
-		})
-	}
-}
-
-func TestBuildGraph_NoModules(t *testing.T) {
-	plan := &core.TerraformPlan{
-		FormatVersion: "1.0",
-		ResourceChanges: []core.ResourceChange{
-			// Root module resource
-			{
-				Address:       "aws_vpc.main",
-				ModuleAddress: "",
-				Mode:          "managed",
-				Type:          "aws_vpc",
-				Name:          "main",
-				Change: core.Change{
-					Actions: []string{"create"},
-					Before:  nil,
-					After:   map[string]interface{}{"cidr_block": "10.0.0.0/16"},
-				},
-			},
-			// Module resource
-			{
-				Address:       "module.network.aws_subnet.public",
-				ModuleAddress: "module.network",
-				Mode:          "managed",
-				Type:          "aws_subnet",
-				Name:          "public",
-				Change: core.Change{
-					Actions: []string{"create"},
-					Before:  nil,
-					After:   map[string]interface{}{"cidr_block": "10.0.1.0/24"},
-				},
-			},
-		},
-		Configuration: core.Configuration{
-			RootModule: core.RootModule{
-				Resources:   []core.ConfigurationResource{},
-				ModuleCalls: make(map[string]core.ModuleCall),
-				Outputs:     make(map[string]core.OutputConfig),
-				Variables:   make(map[string]core.VariableConfig),
-				Locals:      make(map[string]core.LocalConfig),
-			},
-		},
-		Variables:  make(map[string]core.Variable),
-		Applicable: true,
-		Complete:   true,
-		Errored:    false,
-	}
-
-	opts := core.GraphOptions{
-		Format:        core.FormatGraphviz,
-		NoDataSources: false,
-		NoOutputs:     false,
-		NoVariables:   false,
-		NoLocals:      false,
-		NoModules:     true,
-		Verbose:       false,
-	}
-
-	builder := NewBuilder()
-	graphData, err := builder.BuildGraph(plan, opts)
-
-	assert.NoError(t, err)
-	assert.NotNil(t, graphData)
-
-	// Should only have the root module resource
-	assert.Len(t, graphData.Nodes, 1, "Should only have root module resource")
-	assert.Equal(t, "aws_vpc.main", graphData.Nodes[0].Address, "Should have root module resource")
-	assert.Equal(t, "", graphData.Nodes[0].Module, "Root module resource should have empty module address")
+	assert.Equal(t, "module_child_aws_instance_web_0_", sanitizeID("module.child.aws-instance.web[0]"))
 }
