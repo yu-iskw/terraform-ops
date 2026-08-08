@@ -69,7 +69,7 @@ test-analyze:
 # Generate real plans with every supported Terraform/OpenTofu compatibility
 # version and compare the normalized semantics shared by both JSON contracts.
 test-compatibility:
-	./compat/run.sh
+	sh ./compat/run.sh
 
 # Run tests with coverage
 coverage:
