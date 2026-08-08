@@ -35,19 +35,19 @@ resolve_existing_in_workspace() {
 	exit 2
 }
 
-contains_parent_segment() {
+validate_no_parent_segment() {
 	rest="$1"
 	while :; do
 		component="${rest%%/*}"
 		if [ "${component}" = ".." ]; then
-			return 0
+			echo "Error: output-directory must be a repository-relative path without '..': ${OUTPUT_DIRECTORY}" >&2
+			exit 2
 		fi
 		if [ "${rest}" = "${component}" ]; then
 			break
 		fi
 		rest="${rest#*/}"
 	done
-	return 1
 }
 
 plan_path=$(resolve_existing_in_workspace "${PLAN_FILE}")
@@ -62,10 +62,11 @@ if [ ! -d "${workspace_root}" ]; then
 	exit 2
 fi
 
-if [ -z "${OUTPUT_DIRECTORY}" ] || [ "${OUTPUT_DIRECTORY#/}" != "${OUTPUT_DIRECTORY}" ] || contains_parent_segment "${OUTPUT_DIRECTORY}"; then
+if [ -z "${OUTPUT_DIRECTORY}" ] || [ "${OUTPUT_DIRECTORY#/}" != "${OUTPUT_DIRECTORY}" ]; then
 	echo "Error: output-directory must be a repository-relative path without '..': ${OUTPUT_DIRECTORY}" >&2
 	exit 2
 fi
+validate_no_parent_segment "${OUTPUT_DIRECTORY}"
 
 output_dir="${workspace}/${OUTPUT_DIRECTORY}"
 mkdir -p "${output_dir}"
