@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-.PHONY: build clean test coverage fmt vet lint install run help test-integration homebrew-test homebrew-install homebrew-uninstall
+.PHONY: build clean test coverage fmt vet lint install run help test-integration test-compatibility homebrew-test homebrew-install homebrew-uninstall
 
 # Build variables
 BINARY_NAME=terraform-ops
@@ -65,6 +65,11 @@ test-summarize-plan:
 
 test-analyze:
 	$(MAKE) -C integration_tests/analyze all
+
+# Generate real plans with every supported Terraform/OpenTofu compatibility
+# version and compare the normalized semantics shared by both JSON contracts.
+test-compatibility:
+	./compat/run.sh
 
 # Run tests with coverage
 coverage:
