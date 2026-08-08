@@ -29,10 +29,13 @@ import (
 
 const compatibilityCanary = "compatibility-secret-canary"
 
-// TestSemanticEquivalence proves equality only for semantics represented by the
-// overlapping Terraform/OpenTofu JSON contracts. Producer-specific source
-// metadata, format-minor additions, and Terraform-only applyable/complete
-// metadata are intentionally not part of this comparison.
+// TestSemanticEquivalence proves equality for change semantics represented by
+// the overlapping Terraform/OpenTofu JSON contracts. Producer-specific source
+// metadata, format-minor additions, Terraform-only applyable/complete metadata,
+// value payloads, and sensitivity-mask propagation are intentionally not part of
+// equality. Sensitivity masks are producer evidence rather than change intent;
+// their cardinality differs across supported engines even when the resulting
+// resource actions and dependency semantics are identical.
 func TestSemanticEquivalence(t *testing.T) {
 	artifactDir := os.Getenv("COMPAT_ARTIFACT_DIR")
 	if artifactDir == "" {
@@ -75,6 +78,8 @@ func TestSemanticEquivalence(t *testing.T) {
 		if err != nil {
 			t.Fatalf("normalize %s: %v", name, err)
 		}
+		assertStrictRedaction(t, name, changeSet)
+
 		sanitized, err := json.Marshal(changeSet)
 		if err != nil {
 			t.Fatal(err)
@@ -100,32 +105,130 @@ func TestSemanticEquivalence(t *testing.T) {
 	}
 }
 
+func assertStrictRedaction(t *testing.T, name string, changeSet *ir.ChangeSet) {
+	t.Helper()
+	if changeSet.Redaction.Mode != ir.RedactionStrict {
+		t.Fatalf("%s redaction mode = %q, want strict", name, changeSet.Redaction.Mode)
+	}
+	if changeSet.Redaction.VariableValuesRemoved != 1 {
+		t.Fatalf("%s variable values removed = %d, want 1", name, changeSet.Redaction.VariableValuesRemoved)
+	}
+	if changeSet.Redaction.StrictValuesRemoved == 0 {
+		t.Fatalf("%s did not remove any values in strict mode", name)
+	}
+	if len(changeSet.Resources) != 3 {
+		t.Fatalf("%s resources = %d, want 3", name, len(changeSet.Resources))
+	}
+}
+
 type semanticView struct {
-	SchemaVersion   string                 `json:"schema_version"`
-	PlanErrored     bool                   `json:"plan_errored"`
-	PlanFormatMajor string                 `json:"plan_format_major"`
-	Resources       []ir.ResourceChange    `json:"resources,omitempty"`
-	Outputs         []ir.OutputChange      `json:"outputs,omitempty"`
-	Checks          []ir.CheckResult       `json:"checks,omitempty"`
-	Drift           []ir.DriftChange       `json:"drift,omitempty"`
-	Relevant        []ir.RelevantAttribute `json:"relevant,omitempty"`
-	Graph           ir.DependencyGraph     `json:"graph"`
-	Redaction       ir.RedactionSummary    `json:"redaction"`
+	SchemaVersion   string              `json:"schema_version"`
+	PlanErrored     bool                `json:"plan_errored"`
+	PlanFormatMajor string              `json:"plan_format_major"`
+	Resources       []resourceSemantic  `json:"resources,omitempty"`
+	Outputs         []outputSemantic    `json:"outputs,omitempty"`
+	Checks          []ir.CheckResult    `json:"checks,omitempty"`
+	Drift           []resourceSemantic  `json:"drift,omitempty"`
+	Relevant        []relevantSemantic  `json:"relevant,omitempty"`
+	Graph           ir.DependencyGraph  `json:"graph"`
+}
+
+type resourceSemantic struct {
+	Address         string         `json:"address"`
+	PreviousAddress string         `json:"previous_address,omitempty"`
+	ModuleAddress   string         `json:"module_address,omitempty"`
+	Mode            ir.ResourceMode `json:"mode"`
+	Type            string         `json:"type"`
+	Name            string         `json:"name"`
+	Index           string         `json:"index,omitempty"`
+	DeposedKey      string         `json:"deposed_key,omitempty"`
+	Action          ir.Action      `json:"action"`
+	ActionReason    string         `json:"action_reason,omitempty"`
+	ReplacePaths    []string       `json:"replace_paths,omitempty"`
+	UnknownPaths    []string       `json:"unknown_paths,omitempty"`
+	Import          *ir.ImportInfo `json:"import,omitempty"`
+}
+
+type outputSemantic struct {
+	Name         string    `json:"name"`
+	Action       ir.Action `json:"action"`
+	UnknownPaths []string  `json:"unknown_paths,omitempty"`
+}
+
+type relevantSemantic struct {
+	Resource string `json:"resource"`
+	Path     string `json:"path"`
 }
 
 func overlappingSemantics(changeSet *ir.ChangeSet) semanticView {
+	resources := make([]resourceSemantic, 0, len(changeSet.Resources))
+	for _, resource := range changeSet.Resources {
+		resources = append(resources, projectResource(resource))
+	}
+	outputs := make([]outputSemantic, 0, len(changeSet.Outputs))
+	for _, output := range changeSet.Outputs {
+		outputs = append(outputs, outputSemantic{
+			Name:         output.Name,
+			Action:       output.Action,
+			UnknownPaths: pathStrings(output.UnknownPaths),
+		})
+	}
+	drift := make([]resourceSemantic, 0, len(changeSet.Drift))
+	for _, item := range changeSet.Drift {
+		drift = append(drift, projectResource(item.Resource))
+	}
+	relevant := make([]relevantSemantic, 0, len(changeSet.Relevant))
+	for _, item := range changeSet.Relevant {
+		relevant = append(relevant, relevantSemantic{Resource: string(item.Resource), Path: item.Path.String()})
+	}
+
 	return semanticView{
 		SchemaVersion:   changeSet.SchemaVersion,
 		PlanErrored:     changeSet.Plan.Errored,
 		PlanFormatMajor: formatMajor(changeSet.Source.PlanFormatVersion),
-		Resources:       changeSet.Resources,
-		Outputs:         changeSet.Outputs,
+		Resources:       resources,
+		Outputs:         outputs,
 		Checks:          changeSet.Checks,
-		Drift:           changeSet.Drift,
-		Relevant:        changeSet.Relevant,
+		Drift:           drift,
+		Relevant:        relevant,
 		Graph:           changeSet.Graph,
-		Redaction:       changeSet.Redaction,
 	}
+}
+
+func projectResource(resource ir.ResourceChange) resourceSemantic {
+	return resourceSemantic{
+		Address:         string(resource.Address),
+		PreviousAddress: addressString(resource.PreviousAddress),
+		ModuleAddress:   addressString(resource.ModuleAddress),
+		Mode:            resource.Mode,
+		Type:            resource.Type,
+		Name:            resource.Name,
+		Index:           resource.Index,
+		DeposedKey:      resource.DeposedKey,
+		Action:          resource.Action,
+		ActionReason:    resource.ActionReason,
+		ReplacePaths:    pathStrings(resource.ReplacePaths),
+		UnknownPaths:    pathStrings(resource.UnknownPaths),
+		Import:          resource.Import,
+	}
+}
+
+func addressString(address *ir.Address) string {
+	if address == nil {
+		return ""
+	}
+	return string(*address)
+}
+
+func pathStrings(paths []ir.AttributePath) []string {
+	if len(paths) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(paths))
+	for _, path := range paths {
+		out = append(out, path.String())
+	}
+	return out
 }
 
 func formatMajor(version string) string {
