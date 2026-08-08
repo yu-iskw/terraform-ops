@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//      https://www.apache.org/licenses/LICENSE-2.0
+//     https://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -27,8 +27,8 @@ import (
 )
 
 // Location identifies an exact source range in a Terraform configuration file.
-// Paths are always workspace-root-relative and use slash separators so they are
-// directly usable as SARIF artifact URIs.
+// Paths are artifact-root-relative and use slash separators so they are directly
+// usable as SARIF artifact URIs.
 type Location struct {
 	Path        string
 	StartLine   int
@@ -41,38 +41,74 @@ type Location struct {
 // instance keys are intentionally normalized at lookup time because all
 // instances of a resource declaration share the same source block.
 type Index struct {
-	root      string
-	resources map[string]Location
+	workspaceRoot string
+	artifactRoot  string
+	resources     map[string]Location
 }
 
-// Build indexes .tf files under workspaceRoot and follows only local module
-// sources that resolve inside workspaceRoot. Remote modules and modules that
-// escape the workspace are deliberately not traversed.
+// Build indexes .tf files under workspaceRoot and emits locations relative to
+// that same root.
 func Build(workspaceRoot string) (*Index, error) {
-	if workspaceRoot == "" {
-		return nil, fmt.Errorf("workspace root is empty")
-	}
-	root, err := filepath.Abs(workspaceRoot)
+	return BuildWithArtifactRoot(workspaceRoot, workspaceRoot)
+}
+
+// BuildWithArtifactRoot indexes .tf files under workspaceRoot while emitting
+// source paths relative to artifactRoot. artifactRoot must contain
+// workspaceRoot after canonical symlink resolution. This lets GitHub Actions
+// constrain module traversal to one Terraform workspace while producing SARIF
+// URIs relative to the repository checkout root.
+func BuildWithArtifactRoot(workspaceRoot, artifactRoot string) (*Index, error) {
+	workspace, err := canonicalDirectory(workspaceRoot, "workspace root")
 	if err != nil {
-		return nil, fmt.Errorf("resolve workspace root: %w", err)
+		return nil, err
 	}
-	root, err = filepath.EvalSymlinks(root)
+	artifact, err := canonicalDirectory(artifactRoot, "artifact root")
 	if err != nil {
-		return nil, fmt.Errorf("resolve workspace root symlinks: %w", err)
+		return nil, err
 	}
-	info, err := os.Stat(root)
-	if err != nil {
-		return nil, fmt.Errorf("stat workspace root: %w", err)
-	}
-	if !info.IsDir() {
-		return nil, fmt.Errorf("workspace root %q is not a directory", workspaceRoot)
+	if !pathWithin(artifact, workspace) {
+		return nil, fmt.Errorf("workspace root %q is outside artifact root %q", workspaceRoot, artifactRoot)
 	}
 
-	idx := &Index{root: root, resources: map[string]Location{}}
-	if err := idx.walkModule(root, "", map[string]bool{}); err != nil {
+	idx := &Index{
+		workspaceRoot: workspace,
+		artifactRoot:  artifact,
+		resources:     map[string]Location{},
+	}
+	if err := idx.walkModule(workspace, "", map[string]bool{}); err != nil {
 		return nil, err
 	}
 	return idx, nil
+}
+
+func canonicalDirectory(path, label string) (string, error) {
+	if path == "" {
+		return "", fmt.Errorf("%s is empty", label)
+	}
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("resolve %s: %w", label, err)
+	}
+	canonical, err := filepath.EvalSymlinks(absolute)
+	if err != nil {
+		return "", fmt.Errorf("resolve %s symlinks: %w", label, err)
+	}
+	info, err := os.Stat(canonical)
+	if err != nil {
+		return "", fmt.Errorf("stat %s: %w", label, err)
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("%s %q is not a directory", label, path)
+	}
+	return canonical, nil
+}
+
+func pathWithin(root, candidate string) bool {
+	rel, err := filepath.Rel(root, candidate)
+	if err != nil {
+		return false
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 // Resolve returns the declaration range for a resource or data-source instance.
@@ -195,11 +231,7 @@ func (i *Index) resolveLocalModule(parent, source string) (string, bool, error) 
 		}
 		return "", false, fmt.Errorf("resolve local module %q: %w", source, err)
 	}
-	rel, err := filepath.Rel(i.root, candidate)
-	if err != nil {
-		return "", false, fmt.Errorf("relativize local module %q: %w", source, err)
-	}
-	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+	if !pathWithin(i.workspaceRoot, candidate) {
 		return "", false, nil
 	}
 	info, err := os.Stat(candidate)
@@ -210,7 +242,7 @@ func (i *Index) resolveLocalModule(parent, source string) (string, bool, error) 
 }
 
 func (i *Index) location(r hcl.Range) Location {
-	rel, err := filepath.Rel(i.root, r.Filename)
+	rel, err := filepath.Rel(i.artifactRoot, r.Filename)
 	if err != nil {
 		rel = r.Filename
 	}
