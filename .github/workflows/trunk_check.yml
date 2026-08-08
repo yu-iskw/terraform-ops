@@ -34,3 +34,11 @@ jobs:
           egress-policy: audit
       - name: Trunk Check
         uses: trunk-io/trunk-action@v1
+      - name: Print exact formatter diff
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          trunk_bin=$(find "$HOME/.cache/trunk/cli" -type f -name trunk -perm -111 | head -n 1)
+          "$trunk_bin" fmt actions/analyze-plan/entrypoint.sh docs/ci-integration.md
+          git diff -- actions/analyze-plan/entrypoint.sh docs/ci-integration.md
