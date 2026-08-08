@@ -32,15 +32,36 @@ type configResourceContext struct {
 	resource   ConfigResource
 }
 
-func buildDependencyGraphWithModules(configuration Configuration, resources []ir.ResourceChange) ir.DependencyGraph {
-	// Preserve the existing resource-level graph as the baseline, then augment
-	// it with module-aware edges. This keeps the established depends_on and
-	// expression-reference behavior while adding module input/output traversal.
+func buildDependencyGraphWithModules(
+	configuration Configuration,
+	resources []ir.ResourceChange,
+	outputs []ir.OutputChange,
+	variables []string,
+) ir.DependencyGraph {
+	// Resource-to-resource dependency discovery remains the baseline. The
+	// module-aware pass augments it and also materializes the non-secret graph
+	// metadata needed by plan-graph (root variables and root outputs).
 	graph := buildDependencyGraph(configuration, resources)
 	changed := make(map[string]ir.NodeID, len(resources))
 	for _, resource := range resources {
 		id := ir.NodeID(resource.Address)
 		changed[string(resource.Address)] = id
+	}
+
+	rootInputs := make(map[string][]graphSource, len(variables))
+	for _, name := range variables {
+		address := ir.Address("var." + name)
+		id := ir.NodeID(address)
+		graph.Nodes = append(graph.Nodes, ir.Node{ID: id, Address: address, Kind: ir.NodeKindVariable})
+		rootInputs[name] = []graphSource{{id: id, confidence: ir.ConfidenceExact}}
+	}
+	for _, output := range outputs {
+		address := ir.Address("output." + output.Name)
+		graph.Nodes = append(graph.Nodes, ir.Node{
+			ID:      ir.NodeID(address),
+			Address: address,
+			Kind:    ir.NodeKindOutput,
+		})
 	}
 
 	contexts := flattenConfigResourceContexts(configuration.RootModule)
@@ -97,14 +118,18 @@ func buildDependencyGraphWithModules(configuration Configuration, resources []ir
 		}
 	}
 
-	addModuleBoundaryEdges(
+	rootOutputs := addModuleBoundaryEdges(
 		configuration.RootModule,
 		"",
-		nil,
+		rootInputs,
 		changed,
 		baseToChanges,
 		edges,
 	)
+	for _, output := range outputs {
+		target := ir.NodeID("output." + output.Name)
+		addSourcesToTargets(edges, rootOutputs[output.Name], []ir.NodeID{target}, ir.EdgeOutputReference)
+	}
 
 	graph.Edges = graph.Edges[:0]
 	for _, edge := range edges {
@@ -174,7 +199,11 @@ func addModuleBoundaryEdges(
 				switch {
 				case strings.HasPrefix(normalized, "var."):
 					name := variableReferenceName(normalized)
-					addSourcesToTargets(edges, inputs[name], targets, ir.EdgeModuleInput)
+					kind := ir.EdgeModuleInput
+					if modulePath == "" {
+						kind = ir.EdgeVariableReference
+					}
+					addSourcesToTargets(edges, inputs[name], targets, kind)
 				case strings.HasPrefix(normalized, "module."):
 					sources := resolveBoundaryReference(
 						reference,

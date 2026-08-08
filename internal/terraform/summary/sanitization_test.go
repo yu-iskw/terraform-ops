@@ -21,84 +21,62 @@ import (
 	"testing"
 
 	"github.com/yu/terraform-ops/internal/core"
+	"github.com/yu/terraform-ops/internal/ir"
+	terraformsource "github.com/yu/terraform-ops/internal/source/terraform"
 )
 
-func TestSummarizePlanRedactsNestedSensitiveKeyChanges(t *testing.T) {
-	const canary = "TFOPS_LEGACY_SUMMARY_CANARY_4d831a"
-	plan := &core.TerraformPlan{
-		FormatVersion: "1.0",
-		ResourceChanges: []core.ResourceChange{{
-			Address: "test_resource.example",
-			Mode:    "managed",
-			Type:    "test_resource",
-			Name:    "example",
-			Change: core.Change{
-				Actions: []string{"update"},
-				Before: map[string]interface{}{
-					"settings": map[string]interface{}{"password": canary, "name": "before"},
-				},
-				After: map[string]interface{}{
-					"settings": map[string]interface{}{"password": canary, "name": "after"},
-				},
-				BeforeSensitive: map[string]interface{}{
-					"settings": map[string]interface{}{"password": true},
-				},
-				AfterSensitive: map[string]interface{}{
-					"settings": map[string]interface{}{"password": true},
-				},
-			},
-		}},
-		OutputChanges: map[string]core.OutputChange{},
-	}
-
-	summary, err := NewSummarizer().SummarizePlan(plan, core.SummaryOptions{ShowDetails: true})
+func TestSummarizePlanCannotRecoverNestedSensitiveValues(t *testing.T) {
+	const canary = "TFOPS_CHANGESET_SUMMARY_CANARY_4d831a"
+	planJSON := `{
+  "format_version":"1.0",
+  "terraform_version":"1.15.8",
+  "applyable":true,
+  "complete":true,
+  "resource_changes":[{
+    "address":"test_resource.example",
+    "mode":"managed",
+    "type":"test_resource",
+    "name":"example",
+    "change":{
+      "actions":["update"],
+      "before":{"settings":{"password":"` + canary + `","name":"before"}},
+      "after":{"settings":{"password":"` + canary + `","name":"after"}},
+      "before_sensitive":{"settings":{"password":true}},
+      "after_sensitive":{"settings":{"password":true}}
+    }
+  }],
+  "output_changes":{"secret":{
+    "change":{"actions":["update"],"after":"` + canary + `","after_sensitive":true}
+  }},
+  "configuration":{"root_module":{"resources":[],"module_calls":{},"outputs":{}}}
+}`
+	plan, err := terraformsource.ParseReader(strings.NewReader(planJSON), terraformsource.DefaultMaxPlanBytes)
 	if err != nil {
 		t.Fatal(err)
 	}
-	data, err := json.Marshal(summary)
+	changeSet, err := terraformsource.Normalize(plan, ir.EngineTerraform, ir.RedactionStandard)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := NewSummarizer().SummarizePlan(changeSet, core.SummaryOptions{ShowDetails: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := json.Marshal(got)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(string(data), canary) {
-		t.Fatal("legacy summary retained nested sensitive canary")
+		t.Fatal("summary leaked a value removed at the ChangeSet sanitization boundary")
 	}
-	if len(summary.Changes.Update) != 1 || !summary.Changes.Update[0].Sensitive {
-		t.Fatal("nested sensitivity was not detected")
+	if len(got.Changes.Update) != 1 || !got.Changes.Update[0].Sensitive {
+		t.Fatal("nested sensitivity evidence was not preserved")
 	}
-	keyChanges := fmt.Sprint(summary.Changes.Update[0].KeyChanges)
-	if !strings.Contains(keyChanges, "<redacted>") {
-		t.Fatalf("expected redacted marker in detailed key changes, got %s", keyChanges)
+	if !strings.Contains(fmt.Sprint(got.Changes.Update[0].KeyChanges), "<redacted>") {
+		t.Fatalf("expected redacted marker in safe key changes, got %#v", got.Changes.Update[0].KeyChanges)
 	}
-}
-
-func TestSummarizePlanTreatsBooleanSensitiveOutputMaskAsSensitive(t *testing.T) {
-	const canary = "TFOPS_OUTPUT_CANARY_f02a77"
-	plan := &core.TerraformPlan{
-		FormatVersion:   "1.0",
-		ResourceChanges: []core.ResourceChange{},
-		OutputChanges: map[string]core.OutputChange{
-			"secret": {
-				Change: core.Change{
-					Actions:        []string{"update"},
-					After:          canary,
-					AfterSensitive: true,
-				},
-			},
-		},
-	}
-
-	summary, err := NewSummarizer().SummarizePlan(plan, core.SummaryOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(summary.Outputs) != 1 || !summary.Outputs[0].Sensitive || summary.Outputs[0].Value != nil {
-		t.Fatalf("sensitive output was not suppressed: %#v", summary.Outputs)
-	}
-	data, err := json.Marshal(summary)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(string(data), canary) {
-		t.Fatal("sensitive output canary leaked")
+	if len(got.Outputs) != 1 || !got.Outputs[0].Sensitive || got.Outputs[0].Value != nil {
+		t.Fatalf("sensitive output was not suppressed: %#v", got.Outputs)
 	}
 }

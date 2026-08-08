@@ -21,32 +21,29 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/yu/terraform-ops/internal/core"
-	"github.com/yu/terraform-ops/internal/terraform/plan"
+	"github.com/yu/terraform-ops/internal/ir"
+	terraformsource "github.com/yu/terraform-ops/internal/source/terraform"
 	"github.com/yu/terraform-ops/internal/terraform/summary"
 	"github.com/yu/terraform-ops/internal/terraform/summary/formatters"
 )
 
-// SummarizePlanCommand represents the summarize-plan command with dependency injection
+// SummarizePlanCommand projects a normalized ChangeSet into legacy-compatible
+// summary renderers. Raw plan DTOs never cross into the command's domain logic.
 type SummarizePlanCommand struct {
-	planParser       core.PlanParser
 	planSummarizer   core.PlanSummarizer
 	formatterFactory *formatters.Factory
 }
 
-// NewSummarizePlanCommand creates a new summarize-plan command with injected dependencies
 func NewSummarizePlanCommand(
-	planParser core.PlanParser,
 	planSummarizer core.PlanSummarizer,
 	formatterFactory *formatters.Factory,
 ) *SummarizePlanCommand {
 	return &SummarizePlanCommand{
-		planParser:       planParser,
 		planSummarizer:   planSummarizer,
 		formatterFactory: formatterFactory,
 	}
 }
 
-// Command returns the cobra command for summarize-plan
 func (c *SummarizePlanCommand) Command() *cobra.Command {
 	var opts core.SummaryOptions
 
@@ -78,7 +75,6 @@ Examples:
 		},
 	}
 
-	// Add flags
 	cmd.Flags().StringVarP((*string)(&opts.Format), "format", "f", string(core.FormatText), "Output format (text, json, markdown, table, plan)")
 	cmd.Flags().StringVarP(&opts.Output, "output", "o", "", "Output file path (default: stdout)")
 	cmd.Flags().StringVarP((*string)(&opts.GroupBy), "group-by", "g", string(core.GroupByAction), "Grouping strategy (action, module, provider, resource_type)")
@@ -91,73 +87,62 @@ Examples:
 	return cmd
 }
 
-// runSummarizePlan executes the summarize-plan command
 func (c *SummarizePlanCommand) runSummarizePlan(planFile string, opts core.SummaryOptions) error {
-	// Validate format
 	if !isValidSummaryFormat(opts.Format) {
 		return fmt.Errorf("unsupported format: %s. Supported formats: text, json, markdown, table, plan", opts.Format)
 	}
-
-	// Validate grouping strategy
 	if !isValidSummaryGrouping(opts.GroupBy) {
 		return fmt.Errorf("unsupported grouping: %s. Supported groupings: action, module, provider, resource_type", opts.GroupBy)
 	}
 
 	if opts.Verbose {
-		fmt.Fprintf(os.Stderr, "Parsing plan file: %s\n", planFile)
+		fmt.Fprintf(os.Stderr, "Loading normalized plan: %s\n", planFile)
 	}
-
-	// Parse the plan file
-	plan, err := c.planParser.ParsePlanFile(planFile)
+	changeSet, err := terraformsource.LoadFile(
+		planFile,
+		terraformsource.DefaultMaxPlanBytes,
+		ir.EngineUnknown,
+		ir.RedactionStandard,
+	)
 	if err != nil {
+		// Preserve the established CLI error prefix while the implementation now
+		// parses and normalizes through the shared source adapter.
 		return fmt.Errorf("failed to parse plan file: %w", err)
 	}
-
 	if opts.Verbose {
-		fmt.Fprintf(os.Stderr, "Found %d resource changes\n", len(plan.ResourceChanges))
+		fmt.Fprintf(os.Stderr, "Found %d resource changes\n", len(changeSet.Resources))
 	}
 
-	// Generate summary
-	summary, err := c.planSummarizer.SummarizePlan(plan, opts)
+	planSummary, err := c.planSummarizer.SummarizePlan(changeSet, opts)
 	if err != nil {
 		return fmt.Errorf("failed to generate summary: %w", err)
 	}
-
 	if opts.Verbose {
-		fmt.Fprintf(os.Stderr, "Generated summary with %d total changes\n", summary.Statistics.TotalChanges)
+		fmt.Fprintf(os.Stderr, "Generated summary with %d total changes\n", planSummary.Statistics.TotalChanges)
 	}
 
-	// Determine color usage
-	useColor := shouldUseColor(opts.Color)
-
-	// Create formatter
-	formatter, err := c.formatterFactory.CreateFormatter(opts.Format, useColor)
+	formatter, err := c.formatterFactory.CreateFormatter(opts.Format, shouldUseColor(opts.Color))
 	if err != nil {
 		return fmt.Errorf("failed to create formatter: %w", err)
 	}
-
-	// Generate formatted output
-	output, err := formatter.Format(summary, opts)
+	output, err := formatter.Format(planSummary, opts)
 	if err != nil {
 		return fmt.Errorf("failed to format summary: %w", err)
 	}
 
-	// Write output
 	if opts.Output != "" {
 		if opts.Verbose {
 			fmt.Fprintf(os.Stderr, "Writing output to: %s\n", opts.Output)
 		}
-		if err := os.WriteFile(opts.Output, []byte(output), 0644); err != nil {
+		if err := os.WriteFile(opts.Output, []byte(output), 0o644); err != nil {
 			return fmt.Errorf("failed to write output file: %w", err)
 		}
 	} else {
 		fmt.Print(output)
 	}
-
 	return nil
 }
 
-// isValidSummaryFormat checks if the format is supported
 func isValidSummaryFormat(format core.SummaryFormat) bool {
 	switch format {
 	case core.FormatText, core.FormatJSON, core.FormatMarkdown, core.FormatTable, core.FormatPlan:
@@ -167,7 +152,6 @@ func isValidSummaryFormat(format core.SummaryFormat) bool {
 	}
 }
 
-// isValidSummaryGrouping checks if the grouping strategy is supported
 func isValidSummaryGrouping(grouping core.SummaryGrouping) bool {
 	switch grouping {
 	case core.GroupByAction, core.GroupByModule, core.GroupByProvider, core.GroupByResourceType:
@@ -177,7 +161,6 @@ func isValidSummaryGrouping(grouping core.SummaryGrouping) bool {
 	}
 }
 
-// shouldUseColor determines if color should be used based on the color mode
 func shouldUseColor(colorMode core.ColorMode) bool {
 	switch colorMode {
 	case core.ColorAlways:
@@ -185,7 +168,6 @@ func shouldUseColor(colorMode core.ColorMode) bool {
 	case core.ColorNever:
 		return false
 	case core.ColorAuto:
-		// Check if stdout is a terminal
 		fileInfo, err := os.Stdout.Stat()
 		if err != nil {
 			return false
@@ -196,10 +178,8 @@ func shouldUseColor(colorMode core.ColorMode) bool {
 	}
 }
 
-// DefaultSummarizePlanCommand creates a summarize-plan command with default dependencies
 func DefaultSummarizePlanCommand() *SummarizePlanCommand {
 	return NewSummarizePlanCommand(
-		plan.NewParser(),
 		summary.NewSummarizer(),
 		formatters.NewFactory(),
 	)

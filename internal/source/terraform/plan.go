@@ -166,6 +166,18 @@ func ParseReader(r io.Reader, maxBytes int64) (*Plan, error) {
 	if err := dec.Decode(&plan); err != nil {
 		return nil, fmt.Errorf("decode plan JSON: %w", err)
 	}
+
+	// Require exactly one JSON value. Decoder.Decode accepts a valid first value
+	// even when another JSON value or malformed non-whitespace data follows it,
+	// while plan files are expected to contain one complete JSON document.
+	var trailing any
+	if err := dec.Decode(&trailing); err != io.EOF {
+		if err == nil {
+			return nil, errors.New("decode plan JSON: multiple JSON values are not allowed")
+		}
+		return nil, fmt.Errorf("decode plan JSON: trailing data: %w", err)
+	}
+
 	if err := validateFormatVersion(plan.FormatVersion); err != nil {
 		return nil, err
 	}

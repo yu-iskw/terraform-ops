@@ -155,6 +155,8 @@ type ResourceChange struct {
 type OutputChange struct {
 	Name           string          `json:"name"`
 	Action         Action          `json:"action"`
+	Before         SafeValue       `json:"before"`
+	After          SafeValue       `json:"after"`
 	UnknownPaths   []AttributePath `json:"unknown_paths,omitempty"`
 	SensitivePaths []AttributePath `json:"sensitive_paths,omitempty"`
 }
@@ -200,9 +202,19 @@ const (
 
 type NodeID string
 
+type NodeKind string
+
+const (
+	NodeKindResource NodeKind = "resource"
+	NodeKindData     NodeKind = "data"
+	NodeKindOutput   NodeKind = "output"
+	NodeKindVariable NodeKind = "variable"
+)
+
 type Node struct {
-	ID      NodeID  `json:"id"`
-	Address Address `json:"address"`
+	ID      NodeID   `json:"id"`
+	Address Address  `json:"address"`
+	Kind    NodeKind `json:"kind,omitempty"`
 }
 
 type EdgeKind string
@@ -210,6 +222,7 @@ type EdgeKind string
 const (
 	EdgeExplicitDependsOn EdgeKind = "explicit_depends_on"
 	EdgeExpressionRef     EdgeKind = "expression_reference"
+	EdgeVariableReference EdgeKind = "variable_reference"
 	EdgeModuleInput       EdgeKind = "module_input"
 	EdgeModuleOutput      EdgeKind = "module_output"
 	EdgeOutputReference   EdgeKind = "output_reference"
@@ -228,10 +241,13 @@ type DependencyGraph struct {
 	Edges []Edge `json:"edges,omitempty"`
 }
 
+// DirectDependents preserves the v1 change-intelligence meaning of blast radius:
+// changed resources/data sources count as dependents; renderer-only variable and
+// output nodes remain available through Edges but do not inflate risk metrics.
 func (g DependencyGraph) DirectDependents(node NodeID) []NodeID {
 	seen := map[NodeID]struct{}{}
 	for _, edge := range g.Edges {
-		if edge.From == node {
+		if edge.From == node && g.isChangeNode(edge.To) {
 			seen[edge.To] = struct{}{}
 		}
 	}
@@ -256,6 +272,26 @@ func (g DependencyGraph) TransitiveDependents(node NodeID) []NodeID {
 		}
 	}
 	return sortedNodeIDs(seen)
+}
+
+func (g DependencyGraph) NodeKind(id NodeID) NodeKind {
+	for _, node := range g.Nodes {
+		if node.ID == id {
+			return node.Kind
+		}
+	}
+	return ""
+}
+
+func (g DependencyGraph) isChangeNode(id NodeID) bool {
+	switch g.NodeKind(id) {
+	case NodeKindOutput, NodeKindVariable:
+		return false
+	default:
+		// Empty kind preserves compatibility with ChangeSet fixtures/reports from
+		// before typed graph nodes were introduced.
+		return true
+	}
 }
 
 func sortedNodeIDs(set map[NodeID]struct{}) []NodeID {
