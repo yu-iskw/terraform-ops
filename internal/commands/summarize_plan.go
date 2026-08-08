@@ -105,7 +105,9 @@ func (c *SummarizePlanCommand) runSummarizePlan(planFile string, opts core.Summa
 		ir.RedactionStandard,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to load plan file: %w", err)
+		// Preserve the established CLI error prefix while the implementation now
+		// parses and normalizes through the shared source adapter.
+		return fmt.Errorf("failed to parse plan file: %w", err)
 	}
 	if opts.Verbose {
 		fmt.Fprintf(os.Stderr, "Found %d resource changes\n", len(changeSet.Resources))
