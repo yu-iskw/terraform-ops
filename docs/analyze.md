@@ -71,16 +71,16 @@ The ordinary text, JSON, and Markdown analysis outputs are unchanged and remain 
 
 ## Initial rules
 
-| Rule | Default severity | Meaning |
-| --- | --- | --- |
-| `TFOPS-PLAN-ERRORED` | high | Planning reported an error. |
-| `TFOPS-PLAN-INCOMPLETE` | medium | The plan may require another round to converge. |
-| `TFOPS-CHECK-FAILED` | high | A Terraform/OpenTofu check failed or errored. |
-| `TFOPS-LIFECYCLE-DELETE` | medium | A managed resource is deleted. |
-| `TFOPS-LIFECYCLE-REPLACE` | medium | A managed resource is replaced. |
-| `TFOPS-DRIFT-DETECTED` | medium | External drift is present in the plan. |
-| `TFOPS-SENSITIVE-MUTATION` | info | Sensitive paths participate in a change. |
-| `TFOPS-UNKNOWN-AFTER` | info | Values remain unknown until apply. |
+| Rule                       | Default severity | Meaning                                         |
+| -------------------------- | ---------------- | ----------------------------------------------- |
+| `TFOPS-PLAN-ERRORED`       | high             | Planning reported an error.                     |
+| `TFOPS-PLAN-INCOMPLETE`    | medium           | The plan may require another round to converge. |
+| `TFOPS-CHECK-FAILED`       | high             | A Terraform/OpenTofu check failed or errored.   |
+| `TFOPS-LIFECYCLE-DELETE`   | medium           | A managed resource is deleted.                  |
+| `TFOPS-LIFECYCLE-REPLACE`  | medium           | A managed resource is replaced.                 |
+| `TFOPS-DRIFT-DETECTED`     | medium           | External drift is present in the plan.          |
+| `TFOPS-SENSITIVE-MUTATION` | info             | Sensitive paths participate in a change.        |
+| `TFOPS-UNKNOWN-AFTER`      | info             | Values remain unknown until apply.              |
 
 Every rule is deterministic and evidence-backed. Provider-specific risk classification is intentionally outside the initial core.
 
