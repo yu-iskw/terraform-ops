@@ -57,9 +57,10 @@ func TestSemanticEquivalence(t *testing.T) {
 	for _, path := range paths {
 		name := filepath.Base(path)
 		engine := engineForArtifact(t, name)
-		if engine == ir.EngineTerraform {
+		switch engine {
+		case ir.EngineTerraform:
 			seenTerraform = true
-		} else if engine == ir.EngineOpenTofu {
+		case ir.EngineOpenTofu:
 			seenOpenTofu = true
 		}
 
@@ -122,31 +123,31 @@ func assertStrictRedaction(t *testing.T, name string, changeSet *ir.ChangeSet) {
 }
 
 type semanticView struct {
-	SchemaVersion   string              `json:"schema_version"`
-	PlanErrored     bool                `json:"plan_errored"`
-	PlanFormatMajor string              `json:"plan_format_major"`
-	Resources       []resourceSemantic  `json:"resources,omitempty"`
-	Outputs         []outputSemantic    `json:"outputs,omitempty"`
-	Checks          []ir.CheckResult    `json:"checks,omitempty"`
-	Drift           []resourceSemantic  `json:"drift,omitempty"`
-	Relevant        []relevantSemantic  `json:"relevant,omitempty"`
-	Graph           ir.DependencyGraph  `json:"graph"`
+	SchemaVersion   string             `json:"schema_version"`
+	PlanErrored     bool               `json:"plan_errored"`
+	PlanFormatMajor string             `json:"plan_format_major"`
+	Resources       []resourceSemantic `json:"resources,omitempty"`
+	Outputs         []outputSemantic   `json:"outputs,omitempty"`
+	Checks          []ir.CheckResult   `json:"checks,omitempty"`
+	Drift           []resourceSemantic `json:"drift,omitempty"`
+	Relevant        []relevantSemantic `json:"relevant,omitempty"`
+	Graph           ir.DependencyGraph `json:"graph"`
 }
 
 type resourceSemantic struct {
-	Address         string         `json:"address"`
-	PreviousAddress string         `json:"previous_address,omitempty"`
-	ModuleAddress   string         `json:"module_address,omitempty"`
+	Address         string          `json:"address"`
+	PreviousAddress string          `json:"previous_address,omitempty"`
+	ModuleAddress   string          `json:"module_address,omitempty"`
 	Mode            ir.ResourceMode `json:"mode"`
-	Type            string         `json:"type"`
-	Name            string         `json:"name"`
-	Index           string         `json:"index,omitempty"`
-	DeposedKey      string         `json:"deposed_key,omitempty"`
-	Action          ir.Action      `json:"action"`
-	ActionReason    string         `json:"action_reason,omitempty"`
-	ReplacePaths    []string       `json:"replace_paths,omitempty"`
-	UnknownPaths    []string       `json:"unknown_paths,omitempty"`
-	Import          *ir.ImportInfo `json:"import,omitempty"`
+	Type            string          `json:"type"`
+	Name            string          `json:"name"`
+	Index           string          `json:"index,omitempty"`
+	DeposedKey      string          `json:"deposed_key,omitempty"`
+	Action          ir.Action       `json:"action"`
+	ActionReason    string          `json:"action_reason,omitempty"`
+	ReplacePaths    []string        `json:"replace_paths,omitempty"`
+	UnknownPaths    []string        `json:"unknown_paths,omitempty"`
+	Import          *ir.ImportInfo  `json:"import,omitempty"`
 }
 
 type outputSemantic struct {
