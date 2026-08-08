@@ -65,9 +65,12 @@ case "$output_dir" in
 		;;
 esac
 
-markdown_file="$output_dir/analysis.md"
-json_file="$output_dir/analysis.json"
-sarif_file="$output_dir/analysis.sarif"
+markdown_rel="$OUTPUT_DIRECTORY/analysis.md"
+json_rel="$OUTPUT_DIRECTORY/analysis.json"
+sarif_rel="$OUTPUT_DIRECTORY/analysis.sarif"
+markdown_file="$workspace/$markdown_rel"
+json_file="$workspace/$json_rel"
+sarif_file="$workspace/$sarif_rel"
 
 /app/terraform-ops analyze "$plan_path" \
 	--engine "$ENGINE" \
@@ -99,9 +102,9 @@ if [ "$WRITE_JOB_SUMMARY" = "true" ] && [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
 fi
 
 if [ -n "${GITHUB_OUTPUT:-}" ]; then
-	printf 'sarif-file=%s\n' "$sarif_file" >>"$GITHUB_OUTPUT"
-	printf 'json-file=%s\n' "$json_file" >>"$GITHUB_OUTPUT"
-	printf 'markdown-file=%s\n' "$markdown_file" >>"$GITHUB_OUTPUT"
+	printf 'sarif-file=%s\n' "$sarif_rel" >>"$GITHUB_OUTPUT"
+	printf 'json-file=%s\n' "$json_rel" >>"$GITHUB_OUTPUT"
+	printf 'markdown-file=%s\n' "$markdown_rel" >>"$GITHUB_OUTPUT"
 fi
 
 exit "$status"
