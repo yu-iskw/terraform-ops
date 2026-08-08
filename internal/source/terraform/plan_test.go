@@ -20,8 +20,7 @@ import (
 )
 
 func TestParseReaderAllowsTrailingWhitespace(t *testing.T) {
-	plan, err := ParseReader(strings.NewReader(`{"format_version":"1.0"} 
-	`), DefaultMaxPlanBytes)
+	plan, err := ParseReader(strings.NewReader(`{"format_version":"1.0"}`+" \n\t"), DefaultMaxPlanBytes)
 	if err != nil {
 		t.Fatalf("ParseReader() error = %v", err)
 	}
@@ -33,7 +32,7 @@ func TestParseReaderAllowsTrailingWhitespace(t *testing.T) {
 func TestParseReaderRejectsTrailingData(t *testing.T) {
 	const planJSON = `{"format_version":"1.0"}`
 	tests := []struct {
-		name  string
+		name   string
 		suffix string
 	}{
 		{name: "second object", suffix: `{"format_version":"1.0"}`},
