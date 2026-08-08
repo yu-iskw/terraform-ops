@@ -48,7 +48,7 @@ runs:
     - name: Set up Go
       uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
       with:
-        go-version-file: ${{ github.workspace }}/go.mod
+        go-version-file: ${{ github.action_path }}/../../go.mod
         cache: false
     - name: Build and analyze plan
       id: analyze
@@ -61,11 +61,16 @@ runs:
         INPUT_FAIL_ON: ${{ inputs.fail-on }}
         INPUT_OUTPUT_DIRECTORY: ${{ inputs.output-directory }}
         INPUT_WRITE_JOB_SUMMARY: ${{ inputs.write-job-summary }}
+        TERRAFORM_OPS_ACTION_REF: ${{ github.action_ref }}
       run: |
         set -euo pipefail
-        cd "$GITHUB_WORKSPACE"
-        version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)
+        action_repo_root=$(cd "$GITHUB_ACTION_PATH/../.." && pwd)
+        version="$TERRAFORM_OPS_ACTION_REF"
+        if [ -z "$version" ]; then
+          version=$(git -C "$action_repo_root" describe --tags --always --dirty 2>/dev/null || echo dev)
+        fi
         binary="$RUNNER_TEMP/terraform-ops-analyze-plan"
+        cd "$action_repo_root"
         go build -trimpath \
           -ldflags "-X github.com/yu/terraform-ops/internal/version.Version=$version" \
           -o "$binary" \
