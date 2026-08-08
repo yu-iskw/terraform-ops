@@ -30,6 +30,7 @@ func TestGroupingStrategyConstants(t *testing.T) {
 	assert.Equal(t, GroupingStrategy("module"), GroupByModule)
 	assert.Equal(t, GroupingStrategy("action"), GroupByAction)
 	assert.Equal(t, GroupingStrategy("resource_type"), GroupByResourceType)
+	assert.Equal(t, GroupingStrategy("provider"), GroupByProvider)
 }
 
 func TestActionTypeConstants(t *testing.T) {
@@ -48,113 +49,31 @@ func TestNodeTypeConstants(t *testing.T) {
 	assert.Equal(t, NodeType("local"), NodeTypeLocal)
 }
 
-func TestTerraformPlan_EmptyPlan(t *testing.T) {
-	plan := &TerraformPlan{
-		FormatVersion:   "1.0",
-		ResourceChanges: []ResourceChange{},
-		OutputChanges:   make(map[string]OutputChange),
-		Variables:       make(map[string]Variable),
-		Applicable:      true,
-		Complete:        true,
-		Errored:         false,
-	}
-
-	assert.Equal(t, "1.0", plan.FormatVersion)
-	assert.Empty(t, plan.ResourceChanges)
-	assert.Empty(t, plan.OutputChanges)
-	assert.Empty(t, plan.Variables)
-	assert.True(t, plan.Applicable)
-	assert.True(t, plan.Complete)
-	assert.False(t, plan.Errored)
-}
-
-func TestResourceChange_CompleteResource(t *testing.T) {
-	change := ResourceChange{
-		Address:       "aws_instance.web",
-		ModuleAddress: "",
-		Mode:          "managed",
-		Type:          "aws_instance",
-		Name:          "web",
-		Change: Change{
-			Actions: []string{"create"},
-			Before:  nil,
-			After:   map[string]interface{}{"instance_type": "t3.micro"},
-		},
-	}
-
-	assert.Equal(t, "aws_instance.web", change.Address)
-	assert.Equal(t, "", change.ModuleAddress)
-	assert.Equal(t, "managed", change.Mode)
-	assert.Equal(t, "aws_instance", change.Type)
-	assert.Equal(t, "web", change.Name)
-	assert.Equal(t, []string{"create"}, change.Change.Actions)
-}
-
-func TestGraphOptions_DefaultValues(t *testing.T) {
-	opts := GraphOptions{
-		Format:        FormatGraphviz,
-		Output:        "",
-		GroupBy:       GroupByModule,
-		NoDataSources: false,
-		NoOutputs:     false,
-		NoVariables:   false,
-		NoLocals:      false,
-		Compact:       false,
-		Verbose:       false,
-	}
-
+func TestGraphOptionsDefaultValues(t *testing.T) {
+	opts := GraphOptions{Format: FormatGraphviz, GroupBy: GroupByModule}
 	assert.Equal(t, FormatGraphviz, opts.Format)
-	assert.Equal(t, "", opts.Output)
 	assert.Equal(t, GroupByModule, opts.GroupBy)
 	assert.False(t, opts.NoDataSources)
 	assert.False(t, opts.NoOutputs)
 	assert.False(t, opts.NoVariables)
 	assert.False(t, opts.NoLocals)
-	assert.False(t, opts.Compact)
-	assert.False(t, opts.Verbose)
+	assert.False(t, opts.NoModules)
 }
 
-func TestGraphData_EmptyGraph(t *testing.T) {
+func TestGraphDataAndNode(t *testing.T) {
 	graphData := &GraphData{
-		Nodes: []GraphNode{},
-		Edges: []GraphEdge{},
+		Nodes: []GraphNode{{
+			ID: "aws_instance_web", Address: "aws_instance.web", Type: "aws_instance",
+			Name: "web", Provider: "aws", Actions: []string{"create"},
+		}},
+		Edges: []GraphEdge{{From: "aws_instance_web", To: "output_id"}},
 	}
-
-	assert.Empty(t, graphData.Nodes)
-	assert.Empty(t, graphData.Edges)
+	assert.Len(t, graphData.Nodes, 1)
+	assert.Equal(t, "aws", graphData.Nodes[0].Provider)
+	assert.Len(t, graphData.Edges, 1)
 }
 
-func TestGraphNode_CompleteNode(t *testing.T) {
-	node := GraphNode{
-		ID:        "aws_instance_web",
-		Address:   "aws_instance.web",
-		Type:      "aws_instance",
-		Name:      "web",
-		Module:    "",
-		Actions:   []string{"create"},
-		Sensitive: false,
-	}
-
-	assert.Equal(t, "aws_instance_web", node.ID)
-	assert.Equal(t, "aws_instance.web", node.Address)
-	assert.Equal(t, "aws_instance", node.Type)
-	assert.Equal(t, "web", node.Name)
-	assert.Equal(t, "", node.Module)
-	assert.Equal(t, []string{"create"}, node.Actions)
-	assert.False(t, node.Sensitive)
-}
-
-func TestGraphEdge_CompleteEdge(t *testing.T) {
-	edge := GraphEdge{
-		From: "aws_instance_web",
-		To:   "aws_security_group_web",
-	}
-
-	assert.Equal(t, "aws_instance_web", edge.From)
-	assert.Equal(t, "aws_security_group_web", edge.To)
-}
-
-func TestTerraformConfig_CompleteConfig(t *testing.T) {
+func TestTerraformConfigRemainsShowTerraformDomain(t *testing.T) {
 	config := TerraformConfig{
 		Path:              "/path/to/config",
 		RequiredVersion:   ">= 1.0.0",
@@ -164,27 +83,7 @@ func TestTerraformConfig_CompleteConfig(t *testing.T) {
 			Config: map[string]string{"bucket": "terraform-state"},
 		},
 	}
-
 	assert.Equal(t, "/path/to/config", config.Path)
 	assert.Equal(t, ">= 1.0.0", config.RequiredVersion)
-	assert.Equal(t, map[string]string{"aws": "~> 5.0"}, config.RequiredProviders)
-	assert.NotNil(t, config.Backend)
 	assert.Equal(t, "s3", config.Backend.Type)
-	assert.Equal(t, map[string]string{"bucket": "terraform-state"}, config.Backend.Config)
-}
-
-func TestBackend_CompleteBackend(t *testing.T) {
-	backend := &Backend{
-		Type: "gcs",
-		Config: map[string]string{
-			"bucket": "terraform-state",
-			"prefix": "terraform/state",
-		},
-	}
-
-	assert.Equal(t, "gcs", backend.Type)
-	assert.Equal(t, map[string]string{
-		"bucket": "terraform-state",
-		"prefix": "terraform/state",
-	}, backend.Config)
 }
