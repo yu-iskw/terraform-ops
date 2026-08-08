@@ -51,6 +51,8 @@ jobs:
 
 For consumers outside this repository, replace the local action reference with a released/tagged terraform-ops action reference after the feature is released.
 
+When `workspace-root` is a subdirectory such as `infra/prod`, the action still emits SARIF artifact URIs relative to the caller repository root, for example `infra/prod/main.tf`. The Terraform workspace remains the traversal boundary for local modules; repository-relative URI generation does not expand what source files terraform-ops is allowed to index.
+
 ## Upload SARIF to GitHub code scanning
 
 The action intentionally does not request `security-events: write`. A caller that wants code-scanning results grants that permission to the upload step/job and uploads the generated file explicitly.
