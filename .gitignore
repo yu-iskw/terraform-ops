@@ -95,3 +95,6 @@ integration_tests/plan_graph/web-app-plan.json
 integration_tests/plan_graph/workspaces/web-app/.terraform/
 integration_tests/plan_graph/workspaces/web-app/.terraform.lock.hcl
 integration_tests/plan_graph/workspaces/web-app/terraform.tfstate*
+
+# Docker Compose compatibility harness artifacts
+compat/artifacts/
