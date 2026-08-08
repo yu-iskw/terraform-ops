@@ -16,26 +16,31 @@ package sourceindex
 
 import "github.com/yu/terraform-ops/internal/report"
 
-// AttachLocations enriches only resource-scoped findings for which the index can
-// prove an exact local source range. Unresolved and plan-level findings remain
-// location-free and are therefore not emitted as SARIF code-scanning results.
-func AttachLocations(findings []report.Finding, idx *Index) []report.Finding {
-	out := append([]report.Finding(nil), findings...)
-	for i := range out {
-		if out[i].Resource == nil || idx == nil {
+// LocatedFinding pairs a deterministic analysis finding with an exact local
+// declaration range. Keeping this mapping outside AnalysisReport avoids making
+// repository layout part of the stable report schema.
+type LocatedFinding struct {
+	Finding  report.Finding
+	Location Location
+}
+
+// LocateFindings returns only resource-scoped findings for which the index can
+// prove an exact local source range. Unresolved and plan-level findings are
+// intentionally excluded from source-aware outputs such as SARIF.
+func LocateFindings(findings []report.Finding, idx *Index) []LocatedFinding {
+	if idx == nil {
+		return nil
+	}
+	out := make([]LocatedFinding, 0, len(findings))
+	for _, finding := range findings {
+		if finding.Resource == nil {
 			continue
 		}
-		location, ok := idx.Resolve(out[i].Resource.Address)
+		location, ok := idx.Resolve(finding.Resource.Address)
 		if !ok {
 			continue
 		}
-		out[i].Location = &report.SourceLocation{
-			Path:        location.Path,
-			StartLine:   location.StartLine,
-			StartColumn: location.StartColumn,
-			EndLine:     location.EndLine,
-			EndColumn:   location.EndColumn,
-		}
+		out = append(out, LocatedFinding{Finding: finding, Location: location})
 	}
 	return out
 }
