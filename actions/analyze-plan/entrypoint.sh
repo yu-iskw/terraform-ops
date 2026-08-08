@@ -1,4 +1,5 @@
 #!/bin/sh
+# shellcheck disable=SC2250
 
 set -eu
 
@@ -28,7 +29,9 @@ resolve_existing_in_workspace() {
 		resolved=$(realpath "$workspace/$candidate")
 	fi
 	case "$resolved" in
-		"$workspace"|"$workspace"/*) printf '%s\n' "$resolved" ;;
+		"$workspace" | "$workspace"/*)
+			printf '%s\n' "$resolved"
+			;;
 		*)
 			echo "Error: path escapes GITHUB_WORKSPACE: $candidate" >&2
 			exit 2
@@ -49,17 +52,18 @@ if [ ! -d "$workspace_root" ]; then
 fi
 
 case "$OUTPUT_DIRECTORY" in
-	""|/*|..|../*|*/../*|*/..)
+	"" | /* | .. | ../* | */../* | */..)
 		echo "Error: output-directory must be a repository-relative path without '..': $OUTPUT_DIRECTORY" >&2
 		exit 2
 		;;
+	*) ;;
 esac
 
 output_dir="$workspace/$OUTPUT_DIRECTORY"
 mkdir -p "$output_dir"
 output_dir=$(realpath "$output_dir")
 case "$output_dir" in
-	"$workspace"|"$workspace"/*) ;;
+	"$workspace" | "$workspace"/*) ;;
 	*)
 		echo "Error: output-directory escapes GITHUB_WORKSPACE" >&2
 		exit 2
@@ -103,9 +107,11 @@ if [ "$WRITE_JOB_SUMMARY" = "true" ] && [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
 fi
 
 if [ -n "${GITHUB_OUTPUT:-}" ]; then
-	printf 'sarif-file=%s\n' "$sarif_rel" >>"$GITHUB_OUTPUT"
-	printf 'json-file=%s\n' "$json_rel" >>"$GITHUB_OUTPUT"
-	printf 'markdown-file=%s\n' "$markdown_rel" >>"$GITHUB_OUTPUT"
+	{
+		printf 'sarif-file=%s\n' "$sarif_rel"
+		printf 'json-file=%s\n' "$json_rel"
+		printf 'markdown-file=%s\n' "$markdown_rel"
+	} >>"$GITHUB_OUTPUT"
 fi
 
 exit "$status"
