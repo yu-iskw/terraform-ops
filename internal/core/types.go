@@ -14,32 +14,33 @@
 
 package core
 
-// PlanParser defines the interface for parsing Terraform plan files
-type PlanParser interface {
-	ParsePlanFile(filename string) (*TerraformPlan, error)
-}
+import "github.com/yu/terraform-ops/internal/ir"
 
-// ConfigParser defines the interface for parsing Terraform configuration files
+// ConfigParser defines the interface for parsing Terraform configuration files.
+// Configuration inspection is separate from plan/change intelligence and keeps
+// its HCL-specific representation here.
 type ConfigParser interface {
 	ParseConfigFiles(paths []string) ([]TerraformConfig, error)
 }
 
-// GraphBuilder defines the interface for building graph data from Terraform plans
+// GraphBuilder projects the normalized ChangeSet graph into the renderer-facing
+// graph model. Dependency discovery itself belongs to the source normalizer.
 type GraphBuilder interface {
-	BuildGraph(plan *TerraformPlan, opts GraphOptions) (*GraphData, error)
+	BuildGraph(changeSet *ir.ChangeSet, opts GraphOptions) (*GraphData, error)
 }
 
-// GraphGenerator defines the interface for generating graphs in different formats
+// GraphGenerator defines the interface for generating graphs in different formats.
 type GraphGenerator interface {
 	Generate(graphData *GraphData, opts GraphOptions) (string, error)
 }
 
-// PlanSummarizer defines the interface for summarizing Terraform plans
+// PlanSummarizer projects a normalized ChangeSet into the compatibility summary
+// model consumed by the existing text/JSON/Markdown/table/plan renderers.
 type PlanSummarizer interface {
-	SummarizePlan(plan *TerraformPlan, opts SummaryOptions) (*PlanSummary, error)
+	SummarizePlan(changeSet *ir.ChangeSet, opts SummaryOptions) (*PlanSummary, error)
 }
 
-// SummaryOptions holds the options for plan summarization
+// SummaryOptions holds the options for plan summarization.
 type SummaryOptions struct {
 	Format      SummaryFormat
 	Output      string
@@ -51,7 +52,8 @@ type SummaryOptions struct {
 	Color       ColorMode
 }
 
-// PlanSummary represents a summarized view of a Terraform plan
+// PlanSummary is a renderer-facing projection of an ir.ChangeSet. It is not a
+// second parsed Terraform plan representation.
 type PlanSummary struct {
 	PlanInfo   PlanInfo        `json:"plan_info"`
 	Statistics Statistics      `json:"statistics"`
@@ -59,7 +61,7 @@ type PlanSummary struct {
 	Outputs    []OutputSummary `json:"outputs,omitempty"`
 }
 
-// PlanInfo contains basic information about the plan
+// PlanInfo contains basic information about the normalized plan.
 type PlanInfo struct {
 	FormatVersion string `json:"format_version"`
 	Applicable    bool   `json:"applicable"`
@@ -67,7 +69,7 @@ type PlanInfo struct {
 	Errored       bool   `json:"errored"`
 }
 
-// Statistics contains counts and breakdowns
+// Statistics contains counts and breakdowns.
 type Statistics struct {
 	TotalChanges      int            `json:"total_changes"`
 	ActionBreakdown   map[string]int `json:"action_breakdown"`
@@ -76,7 +78,7 @@ type Statistics struct {
 	ModuleBreakdown   map[string]int `json:"module_breakdown"`
 }
 
-// Changes represents grouped resource changes
+// Changes represents grouped resource changes.
 type Changes struct {
 	Create  []ResourceSummary `json:"create,omitempty"`
 	Update  []ResourceSummary `json:"update,omitempty"`
@@ -85,7 +87,7 @@ type Changes struct {
 	NoOp    []ResourceSummary `json:"no_op,omitempty"`
 }
 
-// ResourceSummary represents a summarized resource change
+// ResourceSummary is a renderer-facing resource projection.
 type ResourceSummary struct {
 	Address       string                 `json:"address"`
 	ModuleAddress string                 `json:"module_address"`
@@ -97,7 +99,7 @@ type ResourceSummary struct {
 	KeyChanges    map[string]interface{} `json:"key_changes,omitempty"`
 }
 
-// OutputSummary represents a summarized output change
+// OutputSummary is a renderer-facing output projection.
 type OutputSummary struct {
 	Name      string      `json:"name"`
 	Actions   []string    `json:"actions"`
@@ -105,7 +107,7 @@ type OutputSummary struct {
 	Value     interface{} `json:"value,omitempty"`
 }
 
-// SummaryFormat represents the output format for the summary
+// SummaryFormat represents the output format for the summary.
 type SummaryFormat string
 
 const (
@@ -116,10 +118,10 @@ const (
 	FormatPlan     SummaryFormat = "plan"
 )
 
-// SummaryGrouping represents the strategy for grouping resources in the summary
+// SummaryGrouping represents the strategy for grouping resources in the summary.
 type SummaryGrouping = GroupingStrategy
 
-// ColorMode represents the color output mode
+// ColorMode represents the color output mode.
 type ColorMode string
 
 const (
@@ -128,110 +130,8 @@ const (
 	ColorNever  ColorMode = "never"
 )
 
-// TerraformPlan represents a parsed Terraform plan
-type TerraformPlan struct {
-	FormatVersion   string                  `json:"format_version"`
-	ResourceChanges []ResourceChange        `json:"resource_changes"`
-	OutputChanges   map[string]OutputChange `json:"output_changes"`
-	Configuration   Configuration           `json:"configuration"`
-	Variables       map[string]Variable     `json:"variables"`
-	Applicable      bool                    `json:"applicable"`
-	Complete        bool                    `json:"complete"`
-	Errored         bool                    `json:"errored"`
-}
-
-// ResourceChange represents a resource change in the plan
-type ResourceChange struct {
-	Address       string `json:"address"`
-	ModuleAddress string `json:"module_address"`
-	Mode          string `json:"mode"`
-	Type          string `json:"type"`
-	Name          string `json:"name"`
-	Change        Change `json:"change"`
-}
-
-// Change represents the change details for a resource
-type Change struct {
-	Actions         []string    `json:"actions"`
-	Before          interface{} `json:"before"`
-	After           interface{} `json:"after"`
-	AfterUnknown    interface{} `json:"after_unknown"`
-	BeforeSensitive interface{} `json:"before_sensitive"`
-	AfterSensitive  interface{} `json:"after_sensitive"`
-}
-
-// OutputChange represents a change to an output value
-type OutputChange struct {
-	Change Change `json:"change"`
-}
-
-// Configuration represents the configuration section of the plan
-type Configuration struct {
-	ProviderConfig map[string]interface{} `json:"provider_config"`
-	RootModule     RootModule             `json:"root_module"`
-}
-
-// RootModule represents the root module configuration
-type RootModule struct {
-	Resources   []ConfigurationResource   `json:"resources"`
-	ModuleCalls map[string]ModuleCall     `json:"module_calls"`
-	Outputs     map[string]OutputConfig   `json:"outputs"`
-	Variables   map[string]VariableConfig `json:"variables"`
-	Locals      map[string]LocalConfig    `json:"locals"`
-}
-
-// ConfigurationResource represents a resource in the configuration section
-type ConfigurationResource struct {
-	Address     string                 `json:"address"`
-	Mode        string                 `json:"mode"`
-	Type        string                 `json:"type"`
-	Name        string                 `json:"name"`
-	ProviderKey string                 `json:"provider_config_key"`
-	Expressions map[string]interface{} `json:"expressions"`
-	SchemaVer   int                    `json:"schema_version"`
-	DependsOn   []string               `json:"depends_on"`
-}
-
-// ModuleCall represents a module call in the configuration
-type ModuleCall struct {
-	Source      string                 `json:"source"`
-	Expressions map[string]interface{} `json:"expressions"`
-	Module      *ModuleConfig          `json:"module"`
-}
-
-// ModuleConfig represents a module's configuration
-type ModuleConfig struct {
-	Resources   []ConfigurationResource `json:"resources"`
-	ModuleCalls map[string]ModuleCall   `json:"module_calls"`
-	Outputs     map[string]interface{}  `json:"outputs"`
-	Variables   map[string]interface{}  `json:"variables"`
-}
-
-// OutputConfig represents an output configuration
-type OutputConfig struct {
-	Expression map[string]interface{} `json:"expression"`
-	Sensitive  bool                   `json:"sensitive"`
-}
-
-// Variable represents a variable value at the top level of the plan
-type Variable struct {
-	Value interface{} `json:"value"`
-}
-
-// VariableConfig represents a variable configuration
-type VariableConfig struct {
-	Default     interface{} `json:"default"`
-	Description string      `json:"description"`
-	Type        string      `json:"type"`
-	Sensitive   bool        `json:"sensitive"`
-}
-
-// LocalConfig represents a local value configuration
-type LocalConfig struct {
-	Expression map[string]interface{} `json:"expression"`
-}
-
-// TerraformConfig represents the terraform block configuration details
+// TerraformConfig represents terraform block configuration details used by the
+// show-terraform command. It is intentionally independent of plan ChangeSet IR.
 type TerraformConfig struct {
 	Path              string            `json:"path"`
 	RequiredVersion   string            `json:"required_version,omitempty"`
@@ -239,13 +139,15 @@ type TerraformConfig struct {
 	RequiredProviders map[string]string `json:"required_providers"`
 }
 
-// Backend represents the backend configuration
+// Backend represents a backend configuration.
 type Backend struct {
 	Type   string            `json:"type"`
 	Config map[string]string `json:"config,omitempty"`
 }
 
-// GraphOptions holds the options for graph generation
+// GraphOptions holds options for graph rendering. NoLocals remains for CLI
+// compatibility; Terraform's machine-readable plan configuration does not expose
+// local declarations, so normalized ChangeSet graphs do not synthesize them.
 type GraphOptions struct {
 	Format        GraphFormat
 	Output        string
@@ -259,31 +161,31 @@ type GraphOptions struct {
 	Verbose       bool
 }
 
-// GraphData holds all the nodes and edges of the graph
+// GraphData is a renderer-facing projection of ir.DependencyGraph.
 type GraphData struct {
 	Nodes []GraphNode
 	Edges []GraphEdge
 }
 
-// GraphNode represents a node in the graph
+// GraphNode represents a rendered graph node.
 type GraphNode struct {
 	ID        string
 	Address   string
 	Type      string
 	Name      string
 	Module    string
-	Provider  string // Provider name (e.g., "aws", "google", "azurerm")
+	Provider  string
 	Actions   []string
 	Sensitive bool
 }
 
-// GraphEdge represents an edge between two nodes in the graph
+// GraphEdge represents a rendered graph edge.
 type GraphEdge struct {
 	From string
 	To   string
 }
 
-// GraphFormat represents the output format for the graph
+// GraphFormat represents the output format for the graph.
 type GraphFormat string
 
 const (
@@ -292,7 +194,7 @@ const (
 	FormatPlantUML GraphFormat = "plantuml"
 )
 
-// GroupingStrategy represents the strategy for grouping nodes in the graph
+// GroupingStrategy represents the strategy for grouping nodes in the graph.
 type GroupingStrategy string
 
 const (
@@ -302,7 +204,7 @@ const (
 	GroupByProvider     GroupingStrategy = "provider"
 )
 
-// ActionType represents the type of action to be performed on a resource
+// ActionType represents the type of action to be performed on a resource.
 type ActionType string
 
 const (
@@ -313,7 +215,7 @@ const (
 	ActionNoOp    ActionType = "no-op"
 )
 
-// NodeType represents the type of a node in the graph
+// NodeType represents the type of a rendered graph node.
 type NodeType string
 
 const (
