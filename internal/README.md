@@ -54,20 +54,20 @@ Resource and output values are sanitized before being stored in `ChangeSet`. Sou
 
 ## Package Responsibilities
 
-| Package | Responsibility |
-| --- | --- |
-| `internal/app` | Cobra application setup and command registration |
-| `internal/commands` | CLI orchestration; loads normalized inputs and delegates to domain services/renderers |
-| `internal/ir` | Engine-neutral normalized `ChangeSet`, actions, safe values, findings evidence, and dependency graph |
-| `internal/source/terraform` | Bounded Terraform/OpenTofu-compatible JSON decoding, validation, sanitization, and normalization |
-| `internal/analysis` | Deterministic analysis rules over `ChangeSet` |
-| `internal/report` | Stable analysis report construction and rendering |
-| `internal/terraform/summary` | Compatibility projection from `ChangeSet` to summary renderer data |
-| `internal/terraform/summary/formatters` | Text/JSON/Markdown/table/plan-like summary rendering |
-| `internal/terraform/graph` | Compatibility projection from `ChangeSet.Graph` to graph renderer data; no dependency discovery |
-| `internal/terraform/graph/generators` | Graphviz/Mermaid/PlantUML rendering |
-| `internal/terraform/config` | HCL parsing for `show-terraform`; independent of plan/change IR |
-| `internal/core` | Small renderer/configuration interfaces, options, projection types, and shared errors |
+| Package                                 | Responsibility                                                                                       |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `internal/app`                          | Cobra application setup and command registration                                                     |
+| `internal/commands`                     | CLI orchestration; loads normalized inputs and delegates to domain services/renderers                |
+| `internal/ir`                           | Engine-neutral normalized `ChangeSet`, actions, safe values, findings evidence, and dependency graph |
+| `internal/source/terraform`             | Bounded Terraform/OpenTofu-compatible JSON decoding, validation, sanitization, and normalization     |
+| `internal/analysis`                     | Deterministic analysis rules over `ChangeSet`                                                        |
+| `internal/report`                       | Stable analysis report construction and rendering                                                    |
+| `internal/terraform/summary`            | Compatibility projection from `ChangeSet` to summary renderer data                                   |
+| `internal/terraform/summary/formatters` | Text/JSON/Markdown/table/plan-like summary rendering                                                 |
+| `internal/terraform/graph`              | Compatibility projection from `ChangeSet.Graph` to graph renderer data; no dependency discovery      |
+| `internal/terraform/graph/generators`   | Graphviz/Mermaid/PlantUML rendering                                                                  |
+| `internal/terraform/config`             | HCL parsing for `show-terraform`; independent of plan/change IR                                      |
+| `internal/core`                         | Small renderer/configuration interfaces, options, projection types, and shared errors                |
 
 ## ChangeSet as the Single Source of Truth
 
