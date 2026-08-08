@@ -103,6 +103,7 @@ set +e
 	--fail-on "${FAIL_ON}" \
 	--format sarif \
 	--workspace-root "${workspace_root}" \
+	--source-root "${workspace}" \
 	--output "${sarif_file}"
 status=$?
 set -e
