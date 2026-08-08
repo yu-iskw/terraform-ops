@@ -10,6 +10,7 @@ FAIL_ON=${INPUT_FAIL_ON:-none}
 OUTPUT_DIRECTORY=${INPUT_OUTPUT_DIRECTORY:-.terraform-ops}
 WRITE_JOB_SUMMARY=${INPUT_WRITE_JOB_SUMMARY:-true}
 GITHUB_WORKSPACE=${GITHUB_WORKSPACE:-/github/workspace}
+TERRAFORM_OPS_BIN=${TERRAFORM_OPS_BIN:-terraform-ops}
 
 if [ -z "$PLAN_FILE" ]; then
 	echo "Error: plan-file input is required" >&2
@@ -72,14 +73,14 @@ markdown_file="$workspace/$markdown_rel"
 json_file="$workspace/$json_rel"
 sarif_file="$workspace/$sarif_rel"
 
-/app/terraform-ops analyze "$plan_path" \
+"$TERRAFORM_OPS_BIN" analyze "$plan_path" \
 	--engine "$ENGINE" \
 	--redaction "$REDACTION" \
 	--fail-on none \
 	--format markdown \
 	--output "$markdown_file"
 
-/app/terraform-ops analyze "$plan_path" \
+"$TERRAFORM_OPS_BIN" analyze "$plan_path" \
 	--engine "$ENGINE" \
 	--redaction "$REDACTION" \
 	--fail-on none \
@@ -87,7 +88,7 @@ sarif_file="$workspace/$sarif_rel"
 	--output "$json_file"
 
 set +e
-/app/terraform-ops analyze "$plan_path" \
+"$TERRAFORM_OPS_BIN" analyze "$plan_path" \
 	--engine "$ENGINE" \
 	--redaction "$REDACTION" \
 	--fail-on "$FAIL_ON" \
