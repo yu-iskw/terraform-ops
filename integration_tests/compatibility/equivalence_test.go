@@ -31,8 +31,8 @@ const compatibilityCanary = "compatibility-secret-canary"
 
 // TestSemanticEquivalence proves equality only for semantics represented by the
 // overlapping Terraform/OpenTofu JSON contracts. Producer-specific source
-// metadata and Terraform-only applyable/complete metadata are intentionally not
-// part of this comparison.
+// metadata, format-minor additions, and Terraform-only applyable/complete
+// metadata are intentionally not part of this comparison.
 func TestSemanticEquivalence(t *testing.T) {
 	artifactDir := os.Getenv("COMPAT_ARTIFACT_DIR")
 	if artifactDir == "" {
@@ -101,31 +101,36 @@ func TestSemanticEquivalence(t *testing.T) {
 }
 
 type semanticView struct {
-	SchemaVersion     string                 `json:"schema_version"`
-	PlanErrored       bool                   `json:"plan_errored"`
-	PlanFormatVersion string                 `json:"plan_format_version"`
-	Resources         []ir.ResourceChange    `json:"resources,omitempty"`
-	Outputs           []ir.OutputChange      `json:"outputs,omitempty"`
-	Checks            []ir.CheckResult       `json:"checks,omitempty"`
-	Drift             []ir.DriftChange       `json:"drift,omitempty"`
-	Relevant          []ir.RelevantAttribute `json:"relevant,omitempty"`
-	Graph             ir.DependencyGraph     `json:"graph"`
-	Redaction         ir.RedactionSummary    `json:"redaction"`
+	SchemaVersion   string                 `json:"schema_version"`
+	PlanErrored     bool                   `json:"plan_errored"`
+	PlanFormatMajor string                 `json:"plan_format_major"`
+	Resources       []ir.ResourceChange    `json:"resources,omitempty"`
+	Outputs         []ir.OutputChange      `json:"outputs,omitempty"`
+	Checks          []ir.CheckResult       `json:"checks,omitempty"`
+	Drift           []ir.DriftChange       `json:"drift,omitempty"`
+	Relevant        []ir.RelevantAttribute `json:"relevant,omitempty"`
+	Graph           ir.DependencyGraph     `json:"graph"`
+	Redaction       ir.RedactionSummary    `json:"redaction"`
 }
 
 func overlappingSemantics(changeSet *ir.ChangeSet) semanticView {
 	return semanticView{
-		SchemaVersion:     changeSet.SchemaVersion,
-		PlanErrored:       changeSet.Plan.Errored,
-		PlanFormatVersion: changeSet.Source.PlanFormatVersion,
-		Resources:         changeSet.Resources,
-		Outputs:           changeSet.Outputs,
-		Checks:            changeSet.Checks,
-		Drift:             changeSet.Drift,
-		Relevant:          changeSet.Relevant,
-		Graph:             changeSet.Graph,
-		Redaction:         changeSet.Redaction,
+		SchemaVersion:   changeSet.SchemaVersion,
+		PlanErrored:     changeSet.Plan.Errored,
+		PlanFormatMajor: formatMajor(changeSet.Source.PlanFormatVersion),
+		Resources:       changeSet.Resources,
+		Outputs:         changeSet.Outputs,
+		Checks:          changeSet.Checks,
+		Drift:           changeSet.Drift,
+		Relevant:        changeSet.Relevant,
+		Graph:           changeSet.Graph,
+		Redaction:       changeSet.Redaction,
 	}
+}
+
+func formatMajor(version string) string {
+	major, _, _ := strings.Cut(version, ".")
+	return major
 }
 
 func engineForArtifact(t *testing.T, name string) ir.Engine {
