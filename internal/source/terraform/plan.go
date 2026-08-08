@@ -31,7 +31,7 @@ var ErrPlanTooLarge = errors.New("plan JSON exceeds maximum input size")
 type Plan struct {
 	FormatVersion      string                     `json:"format_version"`
 	TerraformVersion   string                     `json:"terraform_version"`
-	Applyable          bool                       `json:"applyable"`
+	Applyable          *bool                      `json:"applyable"`
 	Complete           *bool                      `json:"complete"`
 	Errored            bool                       `json:"errored"`
 	ResourceChanges    []ResourceChange           `json:"resource_changes"`
