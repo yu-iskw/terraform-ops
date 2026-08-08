@@ -173,10 +173,6 @@ func sanitizeID(id string) string {
 	return result
 }
 
-func isResourceType(s string) bool {
-	return strings.Contains(s, "_")
-}
-
 func extractProviderFromType(resourceType string) string {
 	provider, _, ok := strings.Cut(resourceType, "_")
 	if !ok {
