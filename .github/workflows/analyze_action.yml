@@ -58,7 +58,7 @@ jobs:
           test -s "$JSON_FILE"
           test -s "$MARKDOWN_FILE"
           grep -q 'TFOPS-SENSITIVE-MUTATION' "$SARIF_FILE"
-          grep -q '"uri": "main.tf"' "$SARIF_FILE"
+          grep -q '"uri": "integration_tests/analyze_action/workspace/main.tf"' "$SARIF_FILE"
           if grep -R 'TFOPS_ACTION_SECRET_CANARY_4ddbe6' integration_tests/analyze_action/output; then
             echo 'secret canary leaked into analysis output' >&2
             exit 1
