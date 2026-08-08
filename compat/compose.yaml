@@ -1,5 +1,4 @@
 name: terraform-ops-compat
-
 services:
   terraform:
     build:
@@ -15,7 +14,6 @@ services:
     volumes:
       - ./workspaces/equivalence:/workspace:ro
       - ./artifacts:/artifacts
-
   opentofu:
     build:
       context: .
