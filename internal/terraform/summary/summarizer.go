@@ -15,39 +15,41 @@
 package summary
 
 import (
-	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/yu/terraform-ops/internal/core"
+	"github.com/yu/terraform-ops/internal/ir"
 )
 
-// Summarizer implements the core.PlanSummarizer interface
+// Summarizer projects the normalized ChangeSet into the compatibility summary
+// model consumed by the existing formatters. It never reads raw plan JSON.
 type Summarizer struct{}
 
-// NewSummarizer creates a new plan summarizer
 func NewSummarizer() *Summarizer {
 	return &Summarizer{}
 }
 
-// SummarizePlan creates a summary of the Terraform plan
-func (s *Summarizer) SummarizePlan(plan *core.TerraformPlan, opts core.SummaryOptions) (*core.PlanSummary, error) {
-	summary := &core.PlanSummary{
-		PlanInfo: core.PlanInfo{
-			FormatVersion: plan.FormatVersion,
-			Applicable:    plan.Applicable,
-			Complete:      plan.Complete,
-			Errored:       plan.Errored,
-		},
-		Statistics: s.calculateStatistics(plan),
-		Changes:    s.groupResourceChanges(plan),
-		Outputs:    s.summarizeOutputs(plan),
+func (s *Summarizer) SummarizePlan(changeSet *ir.ChangeSet, _ core.SummaryOptions) (*core.PlanSummary, error) {
+	if changeSet == nil {
+		return nil, &core.ValidationError{Field: "change_set", Message: "must not be nil"}
 	}
 
+	summary := &core.PlanSummary{
+		PlanInfo: core.PlanInfo{
+			FormatVersion: changeSet.Source.PlanFormatVersion,
+			Applicable:    changeSet.Plan.Applyable,
+			Complete:      changeSet.Plan.Complete,
+			Errored:       changeSet.Plan.Errored,
+		},
+		Statistics: s.calculateStatistics(changeSet),
+		Changes:    s.groupResourceChanges(changeSet),
+		Outputs:    s.summarizeOutputs(changeSet),
+	}
 	return summary, nil
 }
 
-// calculateStatistics calculates various statistics from the plan
-func (s *Summarizer) calculateStatistics(plan *core.TerraformPlan) core.Statistics {
+func (s *Summarizer) calculateStatistics(changeSet *ir.ChangeSet) core.Statistics {
 	stats := core.Statistics{
 		ActionBreakdown:   make(map[string]int),
 		ProviderBreakdown: make(map[string]int),
@@ -55,277 +57,123 @@ func (s *Summarizer) calculateStatistics(plan *core.TerraformPlan) core.Statisti
 		ModuleBreakdown:   make(map[string]int),
 	}
 
-	// Process resource changes
-	for _, change := range plan.ResourceChanges {
+	for _, change := range changeSet.Resources {
 		stats.TotalChanges++
-
-		// Count by action
-		for _, action := range change.Change.Actions {
+		for _, action := range change.Action.Raw {
 			stats.ActionBreakdown[action]++
 		}
-
-		// Count by provider
-		provider := s.extractProvider(change.Address)
-		stats.ProviderBreakdown[provider]++
-
-		// Count by resource type
+		stats.ProviderBreakdown[extractProviderFromType(change.Type)]++
 		stats.ResourceBreakdown[change.Type]++
-
-		// Count by module
-		module := change.ModuleAddress
-		if module == "" {
-			module = "root"
+		module := "root"
+		if change.ModuleAddress != nil && *change.ModuleAddress != "" {
+			module = string(*change.ModuleAddress)
 		}
 		stats.ModuleBreakdown[module]++
 	}
-
 	return stats
 }
 
-// groupResourceChanges groups resource changes by action type
-func (s *Summarizer) groupResourceChanges(plan *core.TerraformPlan) core.Changes {
+func (s *Summarizer) groupResourceChanges(changeSet *ir.ChangeSet) core.Changes {
 	changes := core.Changes{}
-
-	for _, change := range plan.ResourceChanges {
-		summary := core.ResourceSummary{
-			Address:       change.Address,
-			ModuleAddress: change.ModuleAddress,
+	for _, change := range changeSet.Resources {
+		moduleAddress := ""
+		if change.ModuleAddress != nil {
+			moduleAddress = string(*change.ModuleAddress)
+		}
+		item := core.ResourceSummary{
+			Address:       string(change.Address),
+			ModuleAddress: moduleAddress,
 			Type:          change.Type,
 			Name:          change.Name,
-			Provider:      s.extractProvider(change.Address),
-			Actions:       change.Change.Actions,
-			Sensitive:     s.hasSensitiveValues(change.Change),
+			Provider:      extractProviderFromType(change.Type),
+			Actions:       append([]string(nil), change.Action.Raw...),
+			Sensitive:     len(change.SensitivePaths) > 0,
+			KeyChanges:    extractKeyChanges(change),
 		}
 
-		// Key changes are built only from recursively redacted values. This keeps the
-		// legacy summary command safe while it is incrementally migrated to the v2 IR.
-		summary.KeyChanges = s.extractKeyChanges(change)
-
-		// Group by primary action
-		primaryAction := s.getPrimaryAction(change.Change.Actions)
-		switch primaryAction {
-		case "create":
-			changes.Create = append(changes.Create, summary)
-		case "update":
-			changes.Update = append(changes.Update, summary)
-		case "delete":
-			changes.Delete = append(changes.Delete, summary)
-		case "replace":
-			changes.Replace = append(changes.Replace, summary)
-		case "no-op":
-			changes.NoOp = append(changes.NoOp, summary)
+		switch change.Action.Semantic {
+		case ir.ActionCreate:
+			changes.Create = append(changes.Create, item)
+		case ir.ActionUpdate, ir.ActionRead:
+			changes.Update = append(changes.Update, item)
+		case ir.ActionDelete:
+			changes.Delete = append(changes.Delete, item)
+		case ir.ActionReplaceDestroyCreate, ir.ActionReplaceCreateDestroy:
+			changes.Replace = append(changes.Replace, item)
+		case ir.ActionNoOp:
+			changes.NoOp = append(changes.NoOp, item)
+		default:
+			// Preserve visibility for an unrecognized source action rather than
+			// silently dropping it from legacy summary renderers.
+			changes.Update = append(changes.Update, item)
 		}
 	}
-
 	return changes
 }
 
-// summarizeOutputs creates summaries of output changes
-func (s *Summarizer) summarizeOutputs(plan *core.TerraformPlan) []core.OutputSummary {
-	var outputs []core.OutputSummary
-
-	for name, outputChange := range plan.OutputChanges {
-		summary := core.OutputSummary{
-			Name:      name,
-			Actions:   outputChange.Change.Actions,
-			Sensitive: s.hasSensitiveValues(outputChange.Change),
+func (s *Summarizer) summarizeOutputs(changeSet *ir.ChangeSet) []core.OutputSummary {
+	outputs := make([]core.OutputSummary, 0, len(changeSet.Outputs))
+	for _, output := range changeSet.Outputs {
+		item := core.OutputSummary{
+			Name:      output.Name,
+			Actions:   append([]string(nil), output.Action.Raw...),
+			Sensitive: len(output.SensitivePaths) > 0,
 		}
-
-		// Add value only if the source plan says no part of the output is sensitive.
-		if !summary.Sensitive {
-			summary.Value = outputChange.Change.After
+		if !item.Sensitive && !output.After.Redacted {
+			item.Value = output.After.Value
 		}
-
-		outputs = append(outputs, summary)
+		outputs = append(outputs, item)
 	}
-
 	return outputs
 }
 
-// extractProvider extracts the provider name from a resource address
-func (s *Summarizer) extractProvider(address string) string {
-	// Resource addresses typically follow the pattern: provider_type.name
-	// For module resources: module.name.provider_type.name
-	// For nested modules: module.name.module.subname.provider_type.name
-	parts := strings.Split(address, ".")
-
-	// Find the resource type part (the part that contains underscore)
-	for _, part := range parts {
-		if strings.Contains(part, "_") {
-			// This is the resource type, extract provider from it
-			providerParts := strings.Split(part, "_")
-			if len(providerParts) >= 2 {
-				return providerParts[0]
-			}
-			return part
-		}
+// extractKeyChanges compares values that have already crossed the source
+// adapter's sanitization boundary. It deliberately has no access to Terraform
+// sensitivity masks or raw values.
+func extractKeyChanges(change ir.ResourceChange) map[string]interface{} {
+	if change.Before.Redacted || change.After.Redacted {
+		return nil
 	}
-
-	// Fallback: try to extract from the last part if no underscore found
-	if len(parts) >= 2 {
-		lastPart := parts[len(parts)-2] // The part before the resource name
-		if strings.Contains(lastPart, "_") {
-			providerParts := strings.Split(lastPart, "_")
-			if len(providerParts) >= 2 {
-				return providerParts[0]
-			}
-		}
-	}
-
-	return "unknown"
-}
-
-// hasSensitiveValues checks recursively whether a Terraform/OpenTofu sensitivity
-// mask contains any true leaf. Source plan masks can be bools, nested objects, or
-// nested arrays; checking only top-level map values is insufficient.
-func (s *Summarizer) hasSensitiveValues(change core.Change) bool {
-	return containsSensitive(change.AfterSensitive) || containsSensitive(change.BeforeSensitive)
-}
-
-// extractKeyChanges extracts key changes from recursively redacted resource values.
-func (s *Summarizer) extractKeyChanges(change core.ResourceChange) map[string]interface{} {
+	before := change.Before.Value
+	after := change.After.Value
 	keyChanges := make(map[string]interface{})
-	before := redactSensitive(change.Change.Before, change.Change.BeforeSensitive)
-	after := redactSensitive(change.Change.After, change.Change.AfterSensitive)
 
-	// Extract key changes from before/after values
-	if before != nil && after != nil {
-		if beforeMap, ok := before.(map[string]interface{}); ok {
-			if afterMap, ok := after.(map[string]interface{}); ok {
-				// Find changed keys
-				for key, afterValue := range afterMap {
-					if beforeValue, exists := beforeMap[key]; exists {
-						if fmt.Sprintf("%v", beforeValue) != fmt.Sprintf("%v", afterValue) {
-							keyChanges[key] = map[string]interface{}{
-								"from": beforeValue,
-								"to":   afterValue,
-							}
-						}
-					} else {
-						// New key
-						keyChanges[key] = map[string]interface{}{
-							"from": nil,
-							"to":   afterValue,
-						}
-					}
-				}
+	beforeMap, beforeOK := before.(map[string]interface{})
+	afterMap, afterOK := after.(map[string]interface{})
 
-				// Find deleted keys
-				for key, beforeValue := range beforeMap {
-					if _, exists := afterMap[key]; !exists {
-						keyChanges[key] = map[string]interface{}{
-							"from": beforeValue,
-							"to":   nil,
-						}
-					}
-				}
+	switch {
+	case beforeOK && afterOK:
+		for key, afterValue := range afterMap {
+			beforeValue, exists := beforeMap[key]
+			if !exists || !reflect.DeepEqual(beforeValue, afterValue) {
+				keyChanges[key] = map[string]interface{}{"from": beforeValue, "to": afterValue}
 			}
 		}
-	} else if before == nil && after != nil {
-		// Creating new resource
-		if afterMap, ok := after.(map[string]interface{}); ok {
-			for key, value := range afterMap {
-				keyChanges[key] = map[string]interface{}{
-					"from": nil,
-					"to":   value,
-				}
+		for key, beforeValue := range beforeMap {
+			if _, exists := afterMap[key]; !exists {
+				keyChanges[key] = map[string]interface{}{"from": beforeValue, "to": nil}
 			}
 		}
-	} else if before != nil && after == nil {
-		// Deleting resource
-		if beforeMap, ok := before.(map[string]interface{}); ok {
-			for key, value := range beforeMap {
-				keyChanges[key] = map[string]interface{}{
-					"from": value,
-					"to":   nil,
-				}
-			}
+	case before == nil && afterOK:
+		for key, value := range afterMap {
+			keyChanges[key] = map[string]interface{}{"from": nil, "to": value}
+		}
+	case beforeOK && after == nil:
+		for key, value := range beforeMap {
+			keyChanges[key] = map[string]interface{}{"from": value, "to": nil}
 		}
 	}
 
+	if len(keyChanges) == 0 {
+		return nil
+	}
 	return keyChanges
 }
 
-// getPrimaryAction determines the primary action from a list of actions
-func (s *Summarizer) getPrimaryAction(actions []string) string {
-	if len(actions) == 0 {
-		return "no-op"
+func extractProviderFromType(resourceType string) string {
+	provider, _, ok := strings.Cut(resourceType, "_")
+	if !ok || provider == "" {
+		return "unknown"
 	}
-
-	// Handle special cases
-	if len(actions) == 2 && contains(actions, "delete") && contains(actions, "create") {
-		return "replace"
-	}
-
-	// Return the first action as primary
-	return actions[0]
-}
-
-func containsSensitive(mask interface{}) bool {
-	switch typed := mask.(type) {
-	case bool:
-		return typed
-	case map[string]interface{}:
-		for _, child := range typed {
-			if containsSensitive(child) {
-				return true
-			}
-		}
-	case []interface{}:
-		for _, child := range typed {
-			if containsSensitive(child) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// redactSensitive combines a decoded value with its sensitivity mask. A true
-// mask leaf replaces the corresponding value before any legacy summary DTO is
-// constructed, preventing KeyChanges from retaining raw secrets.
-func redactSensitive(value, mask interface{}) interface{} {
-	if sensitive, ok := mask.(bool); ok && sensitive {
-		return "<redacted>"
-	}
-	if mask == nil {
-		return value
-	}
-
-	switch typedValue := value.(type) {
-	case map[string]interface{}:
-		typedMask, _ := mask.(map[string]interface{})
-		out := make(map[string]interface{}, len(typedValue))
-		for key, child := range typedValue {
-			var childMask interface{}
-			if typedMask != nil {
-				childMask = typedMask[key]
-			}
-			out[key] = redactSensitive(child, childMask)
-		}
-		return out
-	case []interface{}:
-		typedMask, _ := mask.([]interface{})
-		out := make([]interface{}, len(typedValue))
-		for i, child := range typedValue {
-			var childMask interface{}
-			if i < len(typedMask) {
-				childMask = typedMask[i]
-			}
-			out[i] = redactSensitive(child, childMask)
-		}
-		return out
-	default:
-		return value
-	}
-}
-
-// contains checks if a slice contains a specific string
-func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
+	return provider
 }
