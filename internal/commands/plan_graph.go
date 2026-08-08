@@ -102,7 +102,8 @@ func (c *PlanGraphCommand) runPlanGraph(planFile string, opts core.GraphOptions)
 		ir.RedactionStandard,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to load plan file: %w", err)
+		// Keep the established error prefix used by scripts/integration tests.
+		return fmt.Errorf("failed to open plan file: %w", err)
 	}
 	if opts.Verbose {
 		fmt.Fprintf(os.Stderr, "Found %d normalized graph nodes and %d evidence edges\n", len(changeSet.Graph.Nodes), len(changeSet.Graph.Edges))
