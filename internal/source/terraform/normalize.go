@@ -64,12 +64,13 @@ func Normalize(plan *Plan, engine ir.Engine, mode ir.RedactionMode) (*ir.ChangeS
 	}
 
 	for name, raw := range plan.OutputChanges {
-		output, count, err := normalizeOutputChange(name, raw)
+		output, count, strictCount, err := normalizeOutputChange(name, raw, mode)
 		if err != nil {
 			return nil, fmt.Errorf("normalize output %q: %w", name, err)
 		}
 		out.Outputs = append(out.Outputs, output)
 		out.Redaction.TerraformSensitivePaths += count
+		out.Redaction.StrictValuesRemoved += strictCount
 	}
 
 	for _, check := range plan.Checks {
@@ -104,7 +105,12 @@ func Normalize(plan *Plan, engine ir.Engine, mode ir.RedactionMode) (*ir.ChangeS
 		})
 	}
 
-	out.Graph = buildDependencyGraphWithModules(plan.Configuration, out.Resources)
+	out.Graph = buildDependencyGraphWithModules(
+		plan.Configuration,
+		out.Resources,
+		out.Outputs,
+		variableNames(plan.Variables),
+	)
 	out.Sort()
 	return out, nil
 }
@@ -166,26 +172,28 @@ func normalizeResourceChange(raw ResourceChange, mode ir.RedactionMode) (ir.Reso
 	return change, len(change.SensitivePaths), beforeStrict + afterStrict, nil
 }
 
-func normalizeOutputChange(name string, raw OutputChange) (ir.OutputChange, int, error) {
-	before, err := collectMaskPaths(raw.Change.BeforeSensitive)
+func normalizeOutputChange(name string, raw OutputChange, mode ir.RedactionMode) (ir.OutputChange, int, int, error) {
+	before, beforePaths, beforeStrict, err := sanitizeValue(raw.Change.Before, raw.Change.BeforeSensitive, mode)
 	if err != nil {
-		return ir.OutputChange{}, 0, err
+		return ir.OutputChange{}, 0, 0, fmt.Errorf("sanitize before value: %w", err)
 	}
-	after, err := collectMaskPaths(raw.Change.AfterSensitive)
+	after, afterPaths, afterStrict, err := sanitizeValue(raw.Change.After, raw.Change.AfterSensitive, mode)
 	if err != nil {
-		return ir.OutputChange{}, 0, err
+		return ir.OutputChange{}, 0, 0, fmt.Errorf("sanitize after value: %w", err)
 	}
 	unknown, err := collectMaskPaths(raw.Change.AfterUnknown)
 	if err != nil {
-		return ir.OutputChange{}, 0, err
+		return ir.OutputChange{}, 0, 0, err
 	}
-	sensitive := uniquePaths(append(before, after...))
+	sensitive := uniquePaths(append(beforePaths, afterPaths...))
 	return ir.OutputChange{
 		Name:           name,
 		Action:         ir.NormalizeAction(raw.Change.Actions),
+		Before:         before,
+		After:          after,
 		UnknownPaths:   uniquePaths(unknown),
 		SensitivePaths: sensitive,
-	}, len(sensitive), nil
+	}, len(sensitive), beforeStrict + afterStrict, nil
 }
 
 func normalizeCheck(raw Check, mode ir.RedactionMode) []ir.CheckResult {
@@ -382,13 +390,26 @@ func uniquePaths(paths []ir.AttributePath) []ir.AttributePath {
 	return out
 }
 
+func variableNames(variables map[string]json.RawMessage) []string {
+	names := make([]string, 0, len(variables))
+	for name := range variables {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
 func buildDependencyGraph(configuration Configuration, resources []ir.ResourceChange) ir.DependencyGraph {
 	graph := ir.DependencyGraph{}
 	changed := make(map[string]ir.NodeID, len(resources))
 	for _, resource := range resources {
 		id := ir.NodeID(resource.Address)
 		changed[string(resource.Address)] = id
-		graph.Nodes = append(graph.Nodes, ir.Node{ID: id, Address: resource.Address})
+		kind := ir.NodeKindResource
+		if resource.Mode == ir.ResourceModeData {
+			kind = ir.NodeKindData
+		}
+		graph.Nodes = append(graph.Nodes, ir.Node{ID: id, Address: resource.Address, Kind: kind})
 	}
 
 	baseToChanges := make(map[string][]ir.NodeID)
@@ -397,7 +418,7 @@ func buildDependencyGraph(configuration Configuration, resources []ir.ResourceCh
 			if addr == resource.Address || strings.HasPrefix(addr, resource.Address+"[") {
 				baseToChanges[resource.Address] = append(baseToChanges[resource.Address], id)
 			}
-		}
+	}
 	}
 
 	edges := make(map[string]ir.Edge)
