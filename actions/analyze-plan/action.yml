@@ -1,0 +1,44 @@
+name: Terraform/OpenTofu Plan Analyzer
+description: Analyze a Terraform/OpenTofu JSON plan and emit Markdown, JSON, and SARIF artifacts
+author: yu-iskw
+branding:
+  icon: shield
+  color: green
+inputs:
+  plan-file:
+    description: Path to a Terraform/OpenTofu plan JSON file
+    required: true
+  workspace-root:
+    description: Repository-relative Terraform workspace root used for exact source mapping
+    required: false
+    default: .
+  engine:
+    description: Source engine (auto, terraform, opentofu)
+    required: false
+    default: auto
+  redaction:
+    description: Redaction mode (standard, strict)
+    required: false
+    default: strict
+  fail-on:
+    description: Fail when a finding meets this severity (none, info, low, medium, high, critical)
+    required: false
+    default: none
+  output-directory:
+    description: Directory for generated analysis artifacts
+    required: false
+    default: .terraform-ops
+  write-job-summary:
+    description: Append the Markdown analysis to GITHUB_STEP_SUMMARY
+    required: false
+    default: "true"
+outputs:
+  sarif-file:
+    description: Path to the generated SARIF 2.1.0 file
+  json-file:
+    description: Path to the generated sanitized JSON report
+  markdown-file:
+    description: Path to the generated Markdown report
+runs:
+  using: docker
+  image: Dockerfile
