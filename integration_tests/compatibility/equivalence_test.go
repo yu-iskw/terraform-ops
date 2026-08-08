@@ -166,6 +166,8 @@ func overlappingSemantics(changeSet *ir.ChangeSet) semanticView {
 	for _, resource := range changeSet.Resources {
 		resources = append(resources, projectResource(resource))
 	}
+	sort.Slice(resources, func(i, j int) bool { return resources[i].Address < resources[j].Address })
+
 	outputs := make([]outputSemantic, 0, len(changeSet.Outputs))
 	for _, output := range changeSet.Outputs {
 		outputs = append(outputs, outputSemantic{
@@ -174,14 +176,35 @@ func overlappingSemantics(changeSet *ir.ChangeSet) semanticView {
 			UnknownPaths: pathStrings(output.UnknownPaths),
 		})
 	}
+	sort.Slice(outputs, func(i, j int) bool { return outputs[i].Name < outputs[j].Name })
+
 	drift := make([]resourceSemantic, 0, len(changeSet.Drift))
 	for _, item := range changeSet.Drift {
 		drift = append(drift, projectResource(item.Resource))
 	}
+	sort.Slice(drift, func(i, j int) bool { return drift[i].Address < drift[j].Address })
+
 	relevant := make([]relevantSemantic, 0, len(changeSet.Relevant))
 	for _, item := range changeSet.Relevant {
 		relevant = append(relevant, relevantSemantic{Resource: string(item.Resource), Path: item.Path.String()})
 	}
+	sort.Slice(relevant, func(i, j int) bool {
+		if relevant[i].Resource != relevant[j].Resource {
+			return relevant[i].Resource < relevant[j].Resource
+		}
+		return relevant[i].Path < relevant[j].Path
+	})
+
+	checks := append([]ir.CheckResult(nil), changeSet.Checks...)
+	sort.Slice(checks, func(i, j int) bool {
+		if checks[i].Address != checks[j].Address {
+			return checks[i].Address < checks[j].Address
+		}
+		if checks[i].Kind != checks[j].Kind {
+			return checks[i].Kind < checks[j].Kind
+		}
+		return checks[i].Status < checks[j].Status
+	})
 
 	return semanticView{
 		SchemaVersion:   changeSet.SchemaVersion,
@@ -189,7 +212,7 @@ func overlappingSemantics(changeSet *ir.ChangeSet) semanticView {
 		PlanFormatMajor: formatMajor(changeSet.Source.PlanFormatVersion),
 		Resources:       resources,
 		Outputs:         outputs,
-		Checks:          changeSet.Checks,
+		Checks:          checks,
 		Drift:           drift,
 		Relevant:        relevant,
 		Graph:           changeSet.Graph,
@@ -229,6 +252,7 @@ func pathStrings(paths []ir.AttributePath) []string {
 	for _, path := range paths {
 		out = append(out, path.String())
 	}
+	sort.Strings(out)
 	return out
 }
 
