@@ -36,15 +36,16 @@ resolve_existing_in_workspace() {
 }
 
 contains_parent_segment() {
-	path="$1"
-	old_ifs="${IFS}"
-	IFS=/
-	set -- ${path}
-	IFS="${old_ifs}"
-	for component in "$@"; do
+	rest="$1"
+	while :; do
+		component="${rest%%/*}"
 		if [ "${component}" = ".." ]; then
 			return 0
 		fi
+		if [ "${rest}" = "${component}" ]; then
+			break
+		fi
+		rest="${rest#*/}"
 	done
 	return 1
 }
