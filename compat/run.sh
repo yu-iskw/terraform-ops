@@ -1,8 +1,9 @@
 #!/bin/sh
+# shellcheck disable=SC2250
 
 set -eu
 
-repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+repo_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 compose_file="$repo_root/compat/compose.yaml"
 artifact_dir="$repo_root/compat/artifacts"
 
@@ -10,6 +11,7 @@ terraform_versions=${TERRAFORM_VERSIONS:-"1.7.0 1.8.0 1.9.0 1.10.0 1.11.0 1.12.0
 opentofu_versions=${OPENTOFU_VERSIONS:-"1.10.10 1.11.6 1.12.5"}
 
 mkdir -p "$artifact_dir"
+chmod 0777 "$artifact_dir"
 rm -f "$artifact_dir"/*.plan.json
 
 for version in $terraform_versions; do
