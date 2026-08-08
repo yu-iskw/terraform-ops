@@ -15,196 +15,148 @@
 package graph
 
 import (
-	"fmt"
-	"os"
+	"sort"
 	"strings"
 
 	"github.com/yu/terraform-ops/internal/core"
+	"github.com/yu/terraform-ops/internal/ir"
 )
 
-// Builder implements the core.GraphBuilder interface
+// Builder projects the normalized dependency graph into the compatibility graph
+// renderer model. Dependency discovery is performed once by the source
+// normalizer and is never reimplemented here.
 type Builder struct{}
 
-// NewBuilder creates a new graph builder
 func NewBuilder() *Builder {
 	return &Builder{}
 }
 
-// BuildGraph converts a Terraform plan into graph data
-func (b *Builder) BuildGraph(plan *core.TerraformPlan, opts core.GraphOptions) (*core.GraphData, error) {
-	graphData := &core.GraphData{
-		Nodes: make([]core.GraphNode, 0),
-		Edges: make([]core.GraphEdge, 0),
+func (b *Builder) BuildGraph(changeSet *ir.ChangeSet, opts core.GraphOptions) (*core.GraphData, error) {
+	if changeSet == nil {
+		return nil, &core.ValidationError{Field: "change_set", Message: "must not be nil"}
 	}
 
-	// Extract nodes from resource changes (managed resources and data sources)
-	for _, change := range plan.ResourceChanges {
-		// Skip data sources if disabled
-		if change.Mode == "data" && opts.NoDataSources {
+	resources := make(map[string]ir.ResourceChange, len(changeSet.Resources))
+	for _, resource := range changeSet.Resources {
+		resources[string(resource.Address)] = resource
+	}
+	outputs := make(map[string]ir.OutputChange, len(changeSet.Outputs))
+	for _, output := range changeSet.Outputs {
+		outputs["output."+output.Name] = output
+	}
+
+	graphData := &core.GraphData{}
+	included := make(map[ir.NodeID]string, len(changeSet.Graph.Nodes))
+	for _, node := range changeSet.Graph.Nodes {
+		view, ok := projectNode(node, resources, outputs, opts)
+		if !ok {
 			continue
 		}
+		graphData.Nodes = append(graphData.Nodes, view)
+		included[node.ID] = view.ID
+	}
 
-		// Skip resources from modules if disabled
-		if opts.NoModules && change.ModuleAddress != "" {
+	// Multiple pieces of normalized evidence can connect the same pair of
+	// resources. Diagram renderers need one visual edge, while ChangeSet retains
+	// every evidence kind/confidence separately.
+	edgeSet := make(map[string]core.GraphEdge)
+	for _, edge := range changeSet.Graph.Edges {
+		from, fromOK := included[edge.From]
+		to, toOK := included[edge.To]
+		if !fromOK || !toOK || from == to {
 			continue
 		}
-
-		// Extract provider from resource type
-		provider := extractProviderFromType(change.Type)
-
-		node := core.GraphNode{
-			ID:        sanitizeID(change.Address),
-			Address:   change.Address,
-			Type:      change.Type, // Use the actual resource type (e.g., "aws_instance") instead of the NodeType constant
-			Name:      change.Name,
-			Module:    change.ModuleAddress,
-			Provider:  provider,
-			Actions:   change.Change.Actions,
-			Sensitive: hasSensitiveValues(change.Change.AfterSensitive),
-		}
-		graphData.Nodes = append(graphData.Nodes, node)
-
-		if opts.Verbose && change.Mode == "data" {
-			fmt.Fprintf(os.Stderr, "Debug: Added data source node: %s\n", change.Address)
-		}
+		key := from + "\x00" + to
+		edgeSet[key] = core.GraphEdge{From: from, To: to}
+	}
+	for _, edge := range edgeSet {
+		graphData.Edges = append(graphData.Edges, edge)
 	}
 
-	// Extract nodes from output changes (if enabled)
-	if !opts.NoOutputs && plan.OutputChanges != nil {
-		if opts.Verbose {
-			fmt.Fprintf(os.Stderr, "Debug: ShowOutputs is enabled, found %d output changes\n", len(plan.OutputChanges))
+	sort.Slice(graphData.Nodes, func(i, j int) bool { return graphData.Nodes[i].Address < graphData.Nodes[j].Address })
+	sort.Slice(graphData.Edges, func(i, j int) bool {
+		if graphData.Edges[i].From != graphData.Edges[j].From {
+			return graphData.Edges[i].From < graphData.Edges[j].From
 		}
-		for outputName, outputChange := range plan.OutputChanges {
-			// Create output address in standard format
-			outputAddress := "output." + outputName
-
-			node := core.GraphNode{
-				ID:        sanitizeID(outputAddress),
-				Address:   outputAddress,
-				Type:      string(core.NodeTypeOutput),
-				Name:      outputName,
-				Module:    "", // Outputs are always in root module in output_changes
-				Actions:   outputChange.Change.Actions,
-				Sensitive: hasSensitiveValues(outputChange.Change.AfterSensitive),
-			}
-			graphData.Nodes = append(graphData.Nodes, node)
-
-			if opts.Verbose {
-				fmt.Fprintf(os.Stderr, "Debug: Added output node: %s with actions %v\n", outputAddress, outputChange.Change.Actions)
-			}
-		}
-	}
-
-	// Extract nodes from variables (if enabled)
-	if !opts.NoVariables && plan.Variables != nil {
-		if opts.Verbose {
-			fmt.Fprintf(os.Stderr, "Debug: ShowVariables is enabled, found %d variables\n", len(plan.Variables))
-		}
-		for varName := range plan.Variables {
-			// Create variable address in standard format
-			varAddress := "var." + varName
-
-			node := core.GraphNode{
-				ID:        sanitizeID(varAddress),
-				Address:   varAddress,
-				Type:      string(core.NodeTypeVariable),
-				Name:      varName,
-				Module:    "",                // Variables are always in root module
-				Actions:   []string{"no-op"}, // Variables don't have actions
-				Sensitive: false,             // Variable sensitivity would need to be determined from configuration
-			}
-			graphData.Nodes = append(graphData.Nodes, node)
-
-			if opts.Verbose {
-				fmt.Fprintf(os.Stderr, "Debug: Added variable node: %s\n", varAddress)
-			}
-		}
-	}
-
-	// Extract nodes from variables in configuration (if enabled and not already processed)
-	if !opts.NoVariables && plan.Configuration.RootModule.Variables != nil {
-		existingVars := make(map[string]bool)
-		// Track already processed variables from plan.Variables
-		if plan.Variables != nil {
-			for varName := range plan.Variables {
-				existingVars[varName] = true
-			}
-		}
-
-		if opts.Verbose {
-			fmt.Fprintf(os.Stderr, "Debug: Processing %d variables from configuration\n", len(plan.Configuration.RootModule.Variables))
-		}
-		for varName, varConfig := range plan.Configuration.RootModule.Variables {
-			// Skip if already processed from plan.Variables
-			if existingVars[varName] {
-				continue
-			}
-
-			// Create variable address in standard format
-			varAddress := "var." + varName
-
-			node := core.GraphNode{
-				ID:        sanitizeID(varAddress),
-				Address:   varAddress,
-				Type:      string(core.NodeTypeVariable),
-				Name:      varName,
-				Module:    "",                // Variables are always in root module
-				Actions:   []string{"no-op"}, // Variables don't have actions
-				Sensitive: varConfig.Sensitive,
-			}
-			graphData.Nodes = append(graphData.Nodes, node)
-
-			if opts.Verbose {
-				fmt.Fprintf(os.Stderr, "Debug: Added variable node from config: %s\n", varAddress)
-			}
-		}
-	}
-
-	// Extract nodes from locals (if enabled)
-	if !opts.NoLocals && plan.Configuration.RootModule.Locals != nil {
-		if opts.Verbose {
-			fmt.Fprintf(os.Stderr, "Debug: ShowLocals is enabled, found %d locals\n", len(plan.Configuration.RootModule.Locals))
-		}
-		for localName := range plan.Configuration.RootModule.Locals {
-			// Create local address in standard format
-			localAddress := "local." + localName
-
-			node := core.GraphNode{
-				ID:        sanitizeID(localAddress),
-				Address:   localAddress,
-				Type:      string(core.NodeTypeLocal),
-				Name:      localName,
-				Module:    "",                // Locals are always in root module
-				Actions:   []string{"no-op"}, // Locals don't have actions
-				Sensitive: false,             // Local sensitivity would need deeper analysis
-			}
-			graphData.Nodes = append(graphData.Nodes, node)
-
-			if opts.Verbose {
-				fmt.Fprintf(os.Stderr, "Debug: Added local node: %s\n", localAddress)
-			}
-		}
-	}
-
-	// Add edges based on dependencies
-	if opts.Verbose {
-		fmt.Fprintf(os.Stderr, "Debug: Analyzing dependencies...\n")
-	}
-	edges, err := b.analyzeDependencies(plan, opts)
-	if err != nil {
-		return nil, &core.GraphBuildError{
-			Message: "failed to analyze dependencies",
-			Cause:   err,
-		}
-	}
-	graphData.Edges = edges
-
+		return graphData.Edges[i].To < graphData.Edges[j].To
+	})
 	return graphData, nil
 }
 
-// sanitizeID sanitizes an ID for use in graph formats
+func projectNode(
+	node ir.Node,
+	resources map[string]ir.ResourceChange,
+	outputs map[string]ir.OutputChange,
+	opts core.GraphOptions,
+) (core.GraphNode, bool) {
+	address := string(node.Address)
+	kind := node.Kind
+	if kind == "" {
+		// Compatibility for hand-built ChangeSet fixtures created before typed
+		// graph nodes were introduced.
+		switch {
+		case strings.HasPrefix(address, "output."):
+			kind = ir.NodeKindOutput
+		case strings.HasPrefix(address, "var."):
+			kind = ir.NodeKindVariable
+		default:
+			if resource, ok := resources[address]; ok && resource.Mode == ir.ResourceModeData {
+				kind = ir.NodeKindData
+			} else {
+				kind = ir.NodeKindResource
+			}
+		}
+	}
+
+	view := core.GraphNode{ID: sanitizeID(string(node.ID)), Address: address}
+	switch kind {
+	case ir.NodeKindResource, ir.NodeKindData:
+		resource, ok := resources[address]
+		if !ok {
+			return core.GraphNode{}, false
+		}
+		if kind == ir.NodeKindData && opts.NoDataSources {
+			return core.GraphNode{}, false
+		}
+		module := ""
+		if resource.ModuleAddress != nil {
+			module = string(*resource.ModuleAddress)
+		}
+		if opts.NoModules && module != "" {
+			return core.GraphNode{}, false
+		}
+		view.Type = resource.Type
+		view.Name = resource.Name
+		view.Module = module
+		view.Provider = extractProviderFromType(resource.Type)
+		view.Actions = append([]string(nil), resource.Action.Raw...)
+		view.Sensitive = len(resource.SensitivePaths) > 0
+	case ir.NodeKindOutput:
+		if opts.NoOutputs {
+			return core.GraphNode{}, false
+		}
+		output, ok := outputs[address]
+		if !ok {
+			return core.GraphNode{}, false
+		}
+		view.Type = string(core.NodeTypeOutput)
+		view.Name = output.Name
+		view.Actions = append([]string(nil), output.Action.Raw...)
+		view.Sensitive = len(output.SensitivePaths) > 0
+	case ir.NodeKindVariable:
+		if opts.NoVariables {
+			return core.GraphNode{}, false
+		}
+		view.Type = string(core.NodeTypeVariable)
+		view.Name = strings.TrimPrefix(address, "var.")
+		view.Actions = []string{"no-op"}
+	default:
+		return core.GraphNode{}, false
+	}
+	return view, true
+}
+
 func sanitizeID(id string) string {
-	// Replace special characters that might cause issues in graph formats
 	replacements := map[string]string{
 		".": "_",
 		"-": "_",
@@ -214,7 +166,6 @@ func sanitizeID(id string) string {
 		")": "_",
 		" ": "_",
 	}
-
 	result := id
 	for old, new := range replacements {
 		result = strings.ReplaceAll(result, old, new)
@@ -222,34 +173,14 @@ func sanitizeID(id string) string {
 	return result
 }
 
-// hasSensitiveValues checks if a value has sensitive data
-func hasSensitiveValues(sensitive interface{}) bool {
-	// Implementation from original utils.go
-	return false
-}
-
-// isResourceType checks if a string represents a resource type
 func isResourceType(s string) bool {
-	// Terraform resource types follow the pattern: provider_resource_type
-	// Since we're parsing from a valid Terraform plan, any resource type
-	// that follows this pattern should be considered valid
-	parts := strings.Split(s, "_")
-	if len(parts) < 2 {
-		return false
-	}
-
-	// Check if it looks like a valid resource type pattern
-	// This is a more flexible approach that accepts any provider
-	return true
+	return strings.Contains(s, "_")
 }
 
-// extractProviderFromType extracts the provider from a resource type
 func extractProviderFromType(resourceType string) string {
-	// Terraform resource types follow the pattern: provider_resource_type
-	// For example: aws_instance, google_compute_instance, azurerm_virtual_machine
-	parts := strings.Split(resourceType, "_")
-	if len(parts) >= 2 {
-		return parts[0]
+	provider, _, ok := strings.Cut(resourceType, "_")
+	if !ok {
+		return ""
 	}
-	return ""
+	return provider
 }
