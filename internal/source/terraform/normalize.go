@@ -418,7 +418,7 @@ func buildDependencyGraph(configuration Configuration, resources []ir.ResourceCh
 			if addr == resource.Address || strings.HasPrefix(addr, resource.Address+"[") {
 				baseToChanges[resource.Address] = append(baseToChanges[resource.Address], id)
 			}
-	}
+		}
 	}
 
 	edges := make(map[string]ir.Edge)
