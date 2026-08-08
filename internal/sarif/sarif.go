@@ -81,8 +81,8 @@ func Render(analysis report.AnalysisReport, located []sourceindex.LocatedFinding
 			properties.ResourceType = finding.Resource.Type
 		}
 		results = append(results, result{
-			RuleID: finding.RuleID,
-			Level:  sarifLevel(finding.Severity),
+			RuleID:  finding.RuleID,
+			Level:   sarifLevel(finding.Severity),
 			Message: message{Text: finding.Message},
 			Locations: []locationWrapper{{PhysicalLocation: physicalLocation{
 				ArtifactLocation: artifactLocation{URI: location.Path},
