@@ -45,6 +45,7 @@ type analyzeOptions struct {
 	failOn        string
 	output        string
 	workspaceRoot string
+	sourceRoot    string
 	maxPlanSize   int64
 }
 
@@ -86,6 +87,7 @@ to read a plan JSON document from stdin. SARIF output is source-aware and requir
 	cmd.Flags().StringVar(&opts.failOn, "fail-on", "none", "Fail when a finding meets the severity threshold (none, info, low, medium, high, critical)")
 	cmd.Flags().StringVarP(&opts.output, "output", "o", "", "Write the rendered report to a file instead of stdout")
 	cmd.Flags().StringVar(&opts.workspaceRoot, "workspace-root", "", "Terraform workspace root used for exact source mapping (required for SARIF)")
+	cmd.Flags().StringVar(&opts.sourceRoot, "source-root", "", "Root used for SARIF artifact URIs; defaults to workspace-root and must contain it")
 	cmd.Flags().Int64Var(&opts.maxPlanSize, "max-plan-bytes", terraformsource.DefaultMaxPlanBytes, "Maximum accepted plan JSON size in bytes")
 	return cmd
 }
@@ -133,7 +135,11 @@ func (c *AnalyzeCommand) run(ctx context.Context, planPath string, opts analyzeO
 
 	var rendered []byte
 	if format == analysisFormatSARIF {
-		index, indexErr := sourceindex.Build(opts.workspaceRoot)
+		sourceRoot := opts.sourceRoot
+		if sourceRoot == "" {
+			sourceRoot = opts.workspaceRoot
+		}
+		index, indexErr := sourceindex.BuildWithArtifactRoot(opts.workspaceRoot, sourceRoot)
 		if indexErr != nil {
 			return fmt.Errorf("build source index: %w", indexErr)
 		}
