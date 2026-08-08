@@ -12,15 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 name: Terraform OpenTofu Compatibility
-
 on:
   pull_request:
   push:
     branches:
       - main
-
 permissions: read-all
-
 jobs:
   compatibility:
     name: Generate and compare real plans
