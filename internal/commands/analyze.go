@@ -26,7 +26,9 @@ import (
 	"github.com/yu/terraform-ops/internal/analysis"
 	"github.com/yu/terraform-ops/internal/ir"
 	"github.com/yu/terraform-ops/internal/report"
+	"github.com/yu/terraform-ops/internal/sarif"
 	terraformsource "github.com/yu/terraform-ops/internal/source/terraform"
+	"github.com/yu/terraform-ops/internal/sourceindex"
 	"github.com/yu/terraform-ops/internal/version"
 )
 
@@ -37,13 +39,24 @@ type AnalyzeCommand struct {
 }
 
 type analyzeOptions struct {
-	format      string
-	engine      string
-	redaction   string
-	failOn      string
-	output      string
-	maxPlanSize int64
+	format        string
+	engine        string
+	redaction     string
+	failOn        string
+	output        string
+	workspaceRoot string
+	sourceRoot    string
+	maxPlanSize   int64
 }
+
+type analysisOutputFormat string
+
+const (
+	analysisFormatText     analysisOutputFormat = "text"
+	analysisFormatJSON     analysisOutputFormat = "json"
+	analysisFormatMarkdown analysisOutputFormat = "markdown"
+	analysisFormatSARIF    analysisOutputFormat = "sarif"
+)
 
 func NewAnalyzeCommand(registry *analysis.Registry, stdin io.Reader, stdout io.Writer) *AnalyzeCommand {
 	return &AnalyzeCommand{registry: registry, stdin: stdin, stdout: stdout}
@@ -61,17 +74,20 @@ func (c *AnalyzeCommand) Command() *cobra.Command {
 		Long: `Analyze a Terraform/OpenTofu JSON plan without executing Terraform/OpenTofu.
 
 Raw plan values are sanitized before they enter the normalized analysis model. Use "-"
-to read a plan JSON document from stdin.`,
+to read a plan JSON document from stdin. SARIF output is source-aware and requires
+--workspace-root so terraform-ops can map resource addresses to exact local .tf blocks.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return c.run(cmd.Context(), args[0], opts)
 		},
 	}
-	cmd.Flags().StringVarP(&opts.format, "format", "f", string(report.FormatText), "Output format (text, json, markdown)")
+	cmd.Flags().StringVarP(&opts.format, "format", "f", string(analysisFormatText), "Output format (text, json, markdown, sarif)")
 	cmd.Flags().StringVar(&opts.engine, "engine", "auto", "Source engine (auto, terraform, opentofu)")
 	cmd.Flags().StringVar(&opts.redaction, "redaction", string(ir.RedactionStandard), "Redaction mode (standard, strict)")
 	cmd.Flags().StringVar(&opts.failOn, "fail-on", "none", "Fail when a finding meets the severity threshold (none, info, low, medium, high, critical)")
 	cmd.Flags().StringVarP(&opts.output, "output", "o", "", "Write the rendered report to a file instead of stdout")
+	cmd.Flags().StringVar(&opts.workspaceRoot, "workspace-root", "", "Terraform workspace root used for exact source mapping (required for SARIF)")
+	cmd.Flags().StringVar(&opts.sourceRoot, "source-root", "", "Root used for SARIF artifact URIs; defaults to workspace-root and must contain it")
 	cmd.Flags().Int64Var(&opts.maxPlanSize, "max-plan-bytes", terraformsource.DefaultMaxPlanBytes, "Maximum accepted plan JSON size in bytes")
 	return cmd
 }
@@ -93,6 +109,9 @@ func (c *AnalyzeCommand) run(ctx context.Context, planPath string, opts analyzeO
 	if err != nil {
 		return err
 	}
+	if format == analysisFormatSARIF && opts.workspaceRoot == "" {
+		return fmt.Errorf("SARIF output requires --workspace-root for exact source locations")
+	}
 
 	var plan *terraformsource.Plan
 	if planPath == "-" {
@@ -113,7 +132,22 @@ func (c *AnalyzeCommand) run(ctx context.Context, planPath string, opts analyzeO
 		return err
 	}
 	analysisReport := report.Build(changeSet, findings, version.Version)
-	rendered, err := report.Render(analysisReport, format)
+
+	var rendered []byte
+	if format == analysisFormatSARIF {
+		sourceRoot := opts.sourceRoot
+		if sourceRoot == "" {
+			sourceRoot = opts.workspaceRoot
+		}
+		index, indexErr := sourceindex.BuildWithArtifactRoot(opts.workspaceRoot, sourceRoot)
+		if indexErr != nil {
+			return fmt.Errorf("build source index: %w", indexErr)
+		}
+		located := sourceindex.LocateFindings(findings, index)
+		rendered, err = sarif.Render(analysisReport, located)
+	} else {
+		rendered, err = report.Render(analysisReport, report.Format(format))
+	}
 	if err != nil {
 		return err
 	}
@@ -167,16 +201,18 @@ func parseRedaction(value string) (ir.RedactionMode, error) {
 	}
 }
 
-func parseAnalysisFormat(value string) (report.Format, error) {
-	switch report.Format(strings.ToLower(value)) {
-	case report.FormatText:
-		return report.FormatText, nil
-	case report.FormatJSON:
-		return report.FormatJSON, nil
-	case report.FormatMarkdown:
-		return report.FormatMarkdown, nil
+func parseAnalysisFormat(value string) (analysisOutputFormat, error) {
+	switch analysisOutputFormat(strings.ToLower(value)) {
+	case analysisFormatText:
+		return analysisFormatText, nil
+	case analysisFormatJSON:
+		return analysisFormatJSON, nil
+	case analysisFormatMarkdown:
+		return analysisFormatMarkdown, nil
+	case analysisFormatSARIF:
+		return analysisFormatSARIF, nil
 	default:
-		return "", fmt.Errorf("unsupported analysis format %q: use text, json, or markdown", value)
+		return "", fmt.Errorf("unsupported analysis format %q: use text, json, markdown, or sarif", value)
 	}
 }
 

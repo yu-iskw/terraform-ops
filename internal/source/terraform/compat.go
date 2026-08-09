@@ -24,11 +24,19 @@ func planComplete(plan *Plan) bool {
 		return *plan.Complete
 	}
 
+	// Current OpenTofu JSON plans omit Terraform's applyable/complete metadata.
+	// The absence of both fields therefore means there is no producer-level
+	// deferred-plan signal to preserve. Treat a successfully produced plan as
+	// complete while still propagating the explicit errored flag.
+	if !plan.applyablePresent {
+		return !plan.Errored
+	}
+
 	major, minor, ok := parseMajorMinorVersion(plan.TerraformVersion)
 	if !ok {
 		// Missing completeness metadata is ambiguous for unknown/current
-		// producers. Stay conservative unless the producer version proves that
-		// the field predates Terraform 1.8.
+		// Terraform-compatible producers. Stay conservative unless the producer
+		// version proves that the field predates Terraform 1.8.
 		return false
 	}
 	return major < 1 || (major == 1 && minor < 8)

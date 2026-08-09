@@ -1,0 +1,78 @@
+name: Terraform/OpenTofu Plan Analyzer
+description: Analyze a Terraform/OpenTofu JSON plan and emit Markdown, JSON, and SARIF artifacts
+author: yu-iskw
+branding:
+  icon: shield
+  color: green
+inputs:
+  plan-file:
+    description: Path to a Terraform/OpenTofu plan JSON file
+    required: true
+  workspace-root:
+    description: Repository-relative Terraform workspace root used for exact source mapping
+    required: false
+    default: .
+  engine:
+    description: Source engine (auto, terraform, opentofu)
+    required: false
+    default: auto
+  redaction:
+    description: Redaction mode (standard, strict)
+    required: false
+    default: strict
+  fail-on:
+    description: Fail when a finding meets this severity (none, info, low, medium, high, critical)
+    required: false
+    default: none
+  output-directory:
+    description: Directory for generated analysis artifacts
+    required: false
+    default: .terraform-ops
+  write-job-summary:
+    description: Append the Markdown analysis to GITHUB_STEP_SUMMARY
+    required: false
+    default: "true"
+outputs:
+  sarif-file:
+    description: Repository-relative path to the generated SARIF 2.1.0 file
+    value: ${{ steps.analyze.outputs.sarif-file }}
+  json-file:
+    description: Repository-relative path to the generated sanitized JSON report
+    value: ${{ steps.analyze.outputs.json-file }}
+  markdown-file:
+    description: Repository-relative path to the generated Markdown report
+    value: ${{ steps.analyze.outputs.markdown-file }}
+runs:
+  using: composite
+  steps:
+    - name: Set up Go
+      uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
+      with:
+        go-version-file: ${{ github.action_path }}/../../go.mod
+        cache: false
+    - name: Build and analyze plan
+      id: analyze
+      shell: bash
+      env:
+        INPUT_PLAN_FILE: ${{ inputs.plan-file }}
+        INPUT_WORKSPACE_ROOT: ${{ inputs.workspace-root }}
+        INPUT_ENGINE: ${{ inputs.engine }}
+        INPUT_REDACTION: ${{ inputs.redaction }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+        INPUT_OUTPUT_DIRECTORY: ${{ inputs.output-directory }}
+        INPUT_WRITE_JOB_SUMMARY: ${{ inputs.write-job-summary }}
+        TERRAFORM_OPS_ACTION_REF: ${{ github.action_ref }}
+      run: |
+        set -euo pipefail
+        action_repo_root=$(cd "$GITHUB_ACTION_PATH/../.." && pwd)
+        version="$TERRAFORM_OPS_ACTION_REF"
+        if [ -z "$version" ]; then
+          version=$(git -C "$action_repo_root" describe --tags --always --dirty 2>/dev/null || echo dev)
+        fi
+        binary="$RUNNER_TEMP/terraform-ops-analyze-plan"
+        cd "$action_repo_root"
+        go build -trimpath \
+          -ldflags "-X github.com/yu/terraform-ops/internal/version.Version=$version" \
+          -o "$binary" \
+          ./cmd/terraform-ops
+        TERRAFORM_OPS_BIN="$binary" sh "$GITHUB_ACTION_PATH/entrypoint.sh"

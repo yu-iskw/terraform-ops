@@ -1,0 +1,65 @@
+# Copyright 2026 yu-iskw
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+name: Analyze Plan Action
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+permissions: read-all
+jobs:
+  analyze-plan-action:
+    name: Build and exercise local action
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - uses: step-security/harden-runner@6c439dc8bdf85cadbbce9ed30d1c7b959517bc49 # v2.12.2
+        with:
+          egress-policy: audit
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: 1.15.8
+          terraform_wrapper: false
+      - name: Generate real plan JSON
+        run: |
+          terraform -chdir=integration_tests/analyze_action/workspace init -backend=false -input=false
+          terraform -chdir=integration_tests/analyze_action/workspace plan -input=false -lock=false -refresh=false -out=plan.tfplan
+          terraform -chdir=integration_tests/analyze_action/workspace show -json plan.tfplan > integration_tests/analyze_action/plan.json
+          grep -q 'TFOPS_ACTION_SECRET_CANARY_4ddbe6' integration_tests/analyze_action/plan.json
+      - name: Run analyze-plan action
+        id: analyze
+        uses: ./actions/analyze-plan
+        with:
+          plan-file: integration_tests/analyze_action/plan.json
+          workspace-root: integration_tests/analyze_action/workspace
+          engine: terraform
+          redaction: strict
+          fail-on: none
+          output-directory: integration_tests/analyze_action/output
+      - name: Verify safe CI artifacts
+        env:
+          SARIF_FILE: ${{ steps.analyze.outputs.sarif-file }}
+          JSON_FILE: ${{ steps.analyze.outputs.json-file }}
+          MARKDOWN_FILE: ${{ steps.analyze.outputs.markdown-file }}
+        run: |
+          test -s "$SARIF_FILE"
+          test -s "$JSON_FILE"
+          test -s "$MARKDOWN_FILE"
+          grep -q 'TFOPS-SENSITIVE-MUTATION' "$SARIF_FILE"
+          grep -q '"uri": "integration_tests/analyze_action/workspace/main.tf"' "$SARIF_FILE"
+          if grep -R 'TFOPS_ACTION_SECRET_CANARY_4ddbe6' integration_tests/analyze_action/output; then
+            echo 'secret canary leaked into analysis output' >&2
+            exit 1
+          fi

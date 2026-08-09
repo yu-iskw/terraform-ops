@@ -52,3 +52,58 @@ func TestParseReaderRejectsTrailingData(t *testing.T) {
 		})
 	}
 }
+
+func TestParseReaderPreservesExplicitApplyable(t *testing.T) {
+	plan, err := ParseReader(strings.NewReader(`{
+  "format_version":"1.0",
+  "applyable":false,
+  "resource_changes":[{"change":{"actions":["create"]}}]
+}`), DefaultMaxPlanBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !plan.applyablePresent {
+		t.Fatal("explicit applyable field was not marked present")
+	}
+	if plan.Applyable {
+		t.Fatal("explicit applyable=false must not be replaced by derived change semantics")
+	}
+}
+
+func TestParseReaderDerivesApplyableWhenProducerOmitsField(t *testing.T) {
+	plan, err := ParseReader(strings.NewReader(`{
+  "format_version":"1.2",
+  "terraform_version":"1.12.5",
+  "resource_changes":[{"change":{"actions":["create"]}}]
+}`), DefaultMaxPlanBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.applyablePresent {
+		t.Fatal("omitted applyable field was marked present")
+	}
+	if !plan.Applyable {
+		t.Fatal("actionable producer-compatible plan should derive applyable=true")
+	}
+	if !planComplete(plan) {
+		t.Fatal("non-errored producer-compatible plan with omitted completeness metadata should be complete")
+	}
+}
+
+func TestParseReaderOmittedMetadataStillPropagatesErrored(t *testing.T) {
+	plan, err := ParseReader(strings.NewReader(`{
+  "format_version":"1.2",
+  "terraform_version":"1.12.5",
+  "errored":true,
+  "resource_changes":[]
+}`), DefaultMaxPlanBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.Applyable {
+		t.Fatal("errored plan without actionable changes must not derive applyable=true")
+	}
+	if planComplete(plan) {
+		t.Fatal("errored producer-compatible plan must not derive complete=true")
+	}
+}

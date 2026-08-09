@@ -1,0 +1,30 @@
+name: terraform-ops-compat
+services:
+  terraform:
+    build:
+      context: .
+      dockerfile: docker/terraform.Dockerfile
+      args:
+        TERRAFORM_VERSION: ${TERRAFORM_VERSION:-1.15.8}
+    environment:
+      ENGINE_BIN: terraform
+      OUTPUT_FILE: ${OUTPUT_FILE:-terraform.plan.json}
+      TF_IN_AUTOMATION: "1"
+      CHECKPOINT_DISABLE: "1"
+    volumes:
+      - ./workspaces/equivalence:/workspace:ro
+      - ./artifacts:/artifacts
+  opentofu:
+    build:
+      context: .
+      dockerfile: docker/opentofu.Dockerfile
+      args:
+        OPENTOFU_VERSION: ${OPENTOFU_VERSION:-1.12.5}
+    environment:
+      ENGINE_BIN: tofu
+      OUTPUT_FILE: ${OUTPUT_FILE:-opentofu.plan.json}
+      TF_IN_AUTOMATION: "1"
+      CHECKPOINT_DISABLE: "1"
+    volumes:
+      - ./workspaces/equivalence:/workspace:ro
+      - ./artifacts:/artifacts
