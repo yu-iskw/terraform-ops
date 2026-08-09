@@ -2,7 +2,7 @@
 
 set -eu
 
-PLAN_FILE="${INPUT_PLAN_FILE:-}"
+PLAN_FILE="${INPUT_PLAN_FILE-}"
 WORKSPACE_ROOT="${INPUT_WORKSPACE_ROOT:-.}"
 ENGINE="${INPUT_ENGINE:-auto}"
 REDACTION="${INPUT_REDACTION:-strict}"
@@ -109,11 +109,11 @@ set +e
 status=$?
 set -e
 
-if [ "${WRITE_JOB_SUMMARY}" = "true" ] && [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+if [ "${WRITE_JOB_SUMMARY}" = "true" ] && [ -n "${GITHUB_STEP_SUMMARY-}" ]; then
 	cat "${markdown_file}" >>"${GITHUB_STEP_SUMMARY}"
 fi
 
-if [ -n "${GITHUB_OUTPUT:-}" ]; then
+if [ -n "${GITHUB_OUTPUT-}" ]; then
 	{
 		printf 'sarif-file=%s\n' "${sarif_rel}"
 		printf 'json-file=%s\n' "${json_rel}"
