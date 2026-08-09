@@ -34,11 +34,19 @@ jobs:
           egress-policy: audit
       - name: Trunk Check
         uses: trunk-io/trunk-action@v1
-      - name: Print exact formatter diff
+      - name: Format exact target files
         if: always()
         shell: bash
         run: |
           set -euo pipefail
           trunk_bin=$(find "$HOME/.cache/trunk/cli" -type f -name trunk -perm -111 | head -n 1)
           "$trunk_bin" fmt actions/analyze-plan/entrypoint.sh docs/ci-integration.md
-          git diff -- actions/analyze-plan/entrypoint.sh docs/ci-integration.md
+      - name: Upload exact formatter output
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: exact-formatter-output
+          path: |
+            actions/analyze-plan/entrypoint.sh
+            docs/ci-integration.md
+          if-no-files-found: error
