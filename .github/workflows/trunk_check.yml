@@ -32,17 +32,14 @@ jobs:
       - uses: step-security/harden-runner@6c439dc8bdf85cadbbce9ed30d1c7b959517bc49 # v2.10.3
         with:
           egress-policy: audit
-      - name: Trunk Check
-        uses: trunk-io/trunk-action@v1
-      - name: Format exact target files
-        if: always()
+      - name: Set up exact formatter output
         shell: bash
         run: |
           set -euo pipefail
-          trunk_bin=$(find "$HOME/.cache/trunk/cli" -type f -name trunk -perm -111 | head -n 1)
-          "$trunk_bin" fmt actions/analyze-plan/entrypoint.sh docs/ci-integration.md
+          curl -fsSL https://get.trunk.io -o /tmp/trunk-install.sh
+          sh /tmp/trunk-install.sh -y
+          "$HOME/.trunk/bin/trunk" fmt actions/analyze-plan/entrypoint.sh docs/ci-integration.md
       - name: Upload exact formatter output
-        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: exact-formatter-output
@@ -50,3 +47,5 @@ jobs:
             actions/analyze-plan/entrypoint.sh
             docs/ci-integration.md
           if-no-files-found: error
+      - name: Trunk Check
+        uses: trunk-io/trunk-action@v1
