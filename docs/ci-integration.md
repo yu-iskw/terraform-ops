@@ -87,15 +87,15 @@ Pin third-party actions to reviewed commit SHAs in production workflows accordin
 
 ## Inputs
 
-| Input               | Default          | Purpose                                                       |
-| ------------------- | ---------------- | ------------------------------------------------------------- |
-| `plan-file`         | required         | Terraform/OpenTofu JSON plan produced by `show -json`         |
-| `workspace-root`    | `.`              | Root for exact local HCL source mapping                       |
-| `engine`            | `auto`           | `auto`, `terraform`, or `opentofu`                            |
-| `redaction`         | `strict`         | `standard` or `strict`; CI defaults to strict                 |
-| `fail-on`           | `none`           | Severity threshold evaluated after artifacts are written      |
-| `output-directory`  | `.terraform-ops` | Repository-relative output directory                          |
-| `write-job-summary` | `true`           | Append the Markdown analysis to `GITHUB_STEP_SUMMARY`         |
+| Input               | Default          | Purpose                                                  |
+| ------------------- | ---------------- | -------------------------------------------------------- |
+| `plan-file`         | required         | Terraform/OpenTofu JSON plan produced by `show -json`    |
+| `workspace-root`    | `.`              | Root for exact local HCL source mapping                  |
+| `engine`            | `auto`           | `auto`, `terraform`, or `opentofu`                       |
+| `redaction`         | `strict`         | `standard` or `strict`; CI defaults to strict            |
+| `fail-on`           | `none`           | Severity threshold evaluated after artifacts are written |
+| `output-directory`  | `.terraform-ops` | Repository-relative output directory                     |
+| `write-job-summary` | `true`           | Append the Markdown analysis to `GITHUB_STEP_SUMMARY`    |
 
 ## Outputs
 
