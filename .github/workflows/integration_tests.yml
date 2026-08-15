@@ -21,6 +21,10 @@ on:
       - main
     paths-ignore:
       - README.md
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 permissions: read-all
 jobs:
   integration-test:
@@ -34,14 +38,7 @@ jobs:
       fail-fast: false
       max-parallel: 10
       matrix:
-        terraform-version:
-          - 1.7.0
-          - 1.8.0
-          - 1.9.0
-          - 1.10.0
-          - 1.11.0
-          - 1.12.0
-          - 1.15.8
+        terraform-version: ${{ fromJSON(github.event_name == 'pull_request' && '["1.15.8"]' || '["1.7.0","1.8.0","1.9.0","1.10.0","1.11.0","1.12.0","1.15.8"]') }}
     steps:
       - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - uses: step-security/harden-runner@6c439dc8bdf85cadbbce9ed30d1c7b959517bc49 # v2.10.3
@@ -62,5 +59,4 @@ jobs:
           go mod vendor
           make build
       - name: Run Integration Tests
-        run: |
-          make test-integration
+        run: make test-integration
