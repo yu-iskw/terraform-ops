@@ -39,7 +39,7 @@ jobs:
       # Optional: Allow write access to checks to allow the action to annotate code in the PR.
       checks: write
     steps:
-      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: step-security/harden-runner@6c439dc8bdf85cadbbce9ed30d1c7b959517bc49 # v2.10.3
         with:
           egress-policy: audit
